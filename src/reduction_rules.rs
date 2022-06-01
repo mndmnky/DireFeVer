@@ -581,6 +581,7 @@ impl DFVSInstance {
             if weak_ins.is_subset(ins) {
                 self.remove_edge(&(src, trg)).expect("This edge exists");
                 change = true;
+                continue
             }
             let weak_outs = self.graph.weak_out_neighbors(trg).expect("`src` exists");
             let outs = self.graph.out_neighbors(src).as_ref().expect("`trg` exists");
