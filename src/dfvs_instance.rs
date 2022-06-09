@@ -190,7 +190,6 @@ impl DFVSInstance {
                     if !self.graph.reinsert_node(node, ins, outs) {
                         return Err(ProcessingError::RebuildError)
                     }
-                    // TODO here
                     self.solution.remove(&node);
                 },
                 Reduction::MergeBack(node, into, outs, doubles) => {

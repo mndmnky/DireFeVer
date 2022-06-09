@@ -138,7 +138,6 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 
 ### 1.5.1 
 * Updated README
-* ???
 
 ## Todo
 
