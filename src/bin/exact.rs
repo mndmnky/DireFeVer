@@ -20,6 +20,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         for mut instance in subgraphs.into_iter().map(|graph| DFVSInstance::new(graph, None, None)){
             // check size and other important attributes to see if it makes sense to switch to vc.
             if instance.graph.is_vcable() {
+                let i = 0;
                 match instance.via_vertex_cover() {
                     VCQ::Exact(sol) => {
                         // If vc is a solution, add to solution, 

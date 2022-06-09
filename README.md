@@ -8,8 +8,8 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * A directed, simple graph data structure that is implemented with two adjacency sets for each node.
 * A directed feedback vertex set instance, that, beyond others, allows for redoing of alterations on the underlying graph data structure.
 
-### Kernalization
-* Simple kernalization rules as partially described in [^fn2] that include:
+### Kernelization
+* Simple kernelization rules as partially described in [^fn2] that include:
 	* Removing multi-edges.
 	* Adding loop nodes to the solution and removing them from the graph.
 	* Removing sink and source nodes.
@@ -29,6 +29,12 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 
 * The dome rule, as described in [^fn3].
 
+* Vertex Cover rules applied on subgraphs with reciprocal edges:
+	* The link node rule, that contract nodes adjacent to and only to exactly two reciprocal edges, going to and coming from nodes `v` and `w`. As described for the vertex cover problem in [^fn5]. To adapt this rule for the directed feedback vertex set problem, one can not use cases where there exists a directed path from `v` to `w` since that might lead to a directed circle that was not present before.
+	* The twin node rule, as described in [^fn6]. This rule looks for a pair of nodes with identical 3 reciprocal neighbors `v`, `w` and `u`, if there exists a reciprocal edge between any two nodes of `v`, `w` and `u`, those three nodes can be added to the cover.
+	* The unconfined (here dubbed dominion) rule as described in [^fn7].
+	* And the crown rule as described in [^fn8].
+
 ### Heuristics
 * Lower bound heuristics:
 	* A heuristic that counts and removes small cycles.
@@ -37,6 +43,12 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Upper bound heuristics:
 	* Variations of the big degree heuristic.
 	* The lower bound heuristics that finds a clique `C`, removes it, and adds |`C`| to the upper bound.
+
+* Vertex-cover heuristic:
+	* Transforms strongly connected components to a vertex cover instance by only regarding reciprocal edges as single undirected edges and discarding the rest. 
+	* Then, we run a vertex cover solver over that instance. Here we use Duck and Cover [^fn9].
+	* If the returned solution is also a solution for the original strongly connected component, then the solution is optimal.
+	* Otherwise, we can use the solution as a lower bound, which can also be extended to an upper bound by solving the leftover graph.
 
 ### Exact Branching Algorithms
 * A simple branching algorithm that should not currently be used.
@@ -66,7 +78,7 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Merge `DirectedFeedbackVertexSetInstance` and `BranchInstance`, only using `RebuildGraph`.
 * Binary that records reduction statistics on multiple files.
 * Iterative approach for scc- and advanced scc rule.
-* Further speed up of the scc- and advanced scc rule.
+* Further, speed up of the scc- and advanced scc rule.
 
 ### 1.2.0 
 * Added `exhaustive_reductions()`.
@@ -95,7 +107,7 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 
 ### 1.2.2
 * Complete interrupt for BST.
-* binary for exact statistics
+* Binary for exact statistics.
 
 ### 1.3.0
 * Link node rule + restructuring of DFVSInstance.
@@ -113,7 +125,7 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 ### 1.4.0
 * Changes when computing and updating the upper and lower bound.
 * Heuristic over vertex cover
-* SCC split + vc heursitic in exact bin
+* SCC split + vc heuristic in exact bin
 
 ### 1.4.1
 * Via vertex_cover now also computes an upper bound
@@ -124,22 +136,18 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Removed all statistics.
 * Removed the possibility to interrupt.
 
+### 1.5.1 
+* Updated README
+* ???
+
 ## Todo
 
 ### Some time
-* Interrupter in other functions.
-* Think about what priority rule list to use when.
-* bound search space of bst if current_sol + lower_bound > best solution -> return best solution
-* Better compute and set best bounds.
-* Polished branch and reduce algorithm
-* Polish and clean added stuff
-* Include all remaining heuristics to the heuristic binary.
-* Better structure for DFVS_instance and branch_instance.
-* Rules from poly kernel with udfvs solution for heuristic solution.
-* Test for heuristics
-* Single instance heuristic stats need time and lower bound
-* Interrupt does not seem to work for BST
-
+* Fixed rule priority lists.
+* Check if BST can be bounded further (current solution + current best lower bound > best solution -> return best solution).
+* Polish branch and reduce algorithm (can be contracted).
+* UDFVS solution as heuristic.
+* Poly kernel rules.
 
 [^fn1]: Chen, Jianer, et al. "A fixed-parameter algorithm for the directed feedback vertex set problem." Proceedings of the fortieth annual ACM symposium on Theory of computing. 2008.
 
@@ -148,3 +156,13 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 [^fn3]: Lin, Hen-Ming, and Jing-Yang Jou. "On computing the minimum feedback vertex set of a directed graph by contraction operations." IEEE Transactions on computer-aided design of integrated circuits and systems 19.3 (2000): 295-307.
 
 [^fn4]: Fleischer, Rudolf, Xi Wu, and Liwei Yuan. "Experimental study of FPT algorithms for the directed feedback vertex set problem." European Symposium on Algorithms. Springer, Berlin, Heidelberg, 2009.
+
+[^fn5]: Chen, Jianer, Iyad A. Kanj, and Weijia Jia. "Vertex cover: further observations and further improvements." Journal of Algorithms 41.2 (2001): 280-301.
+
+[^fn6]: Xiao, Mingyu, and Hiroshi Nagamochi. "Confining sets and avoiding bottleneck cases: A simple maximum independent set algorithm in degree-3 graphs." Theoretical Computer Science 469 (2013): 92-104.
+
+[^fn7]: Akiba, Takuya, and Yoichi Iwata. "Branch-and-reduce exponential/FPT algorithms in practice: A case study of vertex cover." Theoretical Computer Science 609 (2016): 211-225.
+
+[^fn8]: Abu-Khzam, Faisal N., et al. "Kernelization algorithms for the vertex cover problem." (2017).
+
+[^fn9]: https://github.com/mndmnky/duck-and-cover
