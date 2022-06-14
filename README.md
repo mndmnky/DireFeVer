@@ -51,8 +51,11 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 	* Otherwise, we can use the solution as a lower bound, which can also be extended to an upper bound by solving the leftover graph.
 
 ### Exact Branching Algorithms
-* A simple branching algorithm that should not currently be used.
-* An advanced branching algorithm that first branches on cliques, then on daisies, and finally on small cycles.
+* An advanced branching algorithm that branches on the first available option in the following priority list: 
+	1. A clique of size 3 or more.
+	2. A link node on which the rule could not be applied.
+	3. A daisy.
+	4. The node with the highest chosen weight.
 
 ### Parameterized Algorithm
 * A solver that transforms the instance into a directed arc feedback set instance, then solves by iterative compression and transformation into skew edge multicut instances. As described by [^fn1]
