@@ -225,7 +225,7 @@ impl DFVSInstance {
                     let remove_from_ins = singles.1.difference(&doubles.1);
                     self.graph.remove_edges(remove_from_outs.map(|src| (*src, into)));
                     self.graph.remove_edges(remove_from_ins.map(|trg| (into, *trg)));
-                    let placeholder = self.merge_nodes.len() + self.graph.num_reserved_nodes() + 1;
+                    let placeholder = self.merge_nodes.len() + self.graph.num_reserved_nodes() - 1;
                     self.merge_nodes.pop();
                     self.solution.remove(&placeholder);
                 }
