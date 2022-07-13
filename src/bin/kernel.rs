@@ -39,7 +39,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         File::create(format!("{}/simp_rules_lossy2.csv",dest))?,
         File::create(format!("{}/kern_rules_lossy1.csv",dest))?
     ];
-    writeln!(&mut out_files[0], "name, n, m, nk, mk,\
+    writeln!(&mut out_files[0], "name, n, m, nk, mk, sk,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
              t_tn, n_tn, m_tn,\
@@ -49,19 +49,19 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_domino, n_domino, m_domino,\
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap")?;
-    writeln!(&mut out_files[1], "name, n, m, nk, mk,\
+    writeln!(&mut out_files[1], "name, n, m, nk, mk, sk,\
              t_st, n_st, m_st,\
              t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1,\
              t_dome, n_dome, m_dome,\
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap")?;
-    writeln!(&mut out_files[2], "name, n, m, nk, mk,\
+    writeln!(&mut out_files[2], "name, n, m, nk, mk, sk,\
              t_st, n_st, m_st,\
              t_lossy2, n_lossy2, m_lossy2, maxoff_lossy2,\
              t_dome, n_dome, m_dome,\
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap")?;
-    writeln!(&mut out_files[3], "name, n, m, nk, mk,\
+    writeln!(&mut out_files[3], "name, n, m, nk, mk, sk,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
              t_tn, n_tn, m_tn,\
@@ -128,7 +128,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                                 let file = File::create(format!("{}/{:?}_k_{}",dest,g_name,rule_set))?;
                                 left_over.graph.write_graph(file)?;
                                 let mut line = String::new();
-                                line.push_str(&format!("{:?}, {}, {}, {}, {}, ",g_name, n, m, left_over.graph.num_nodes(), left_over.graph.num_edges()));
+                                line.push_str(&format!("{:?}, {}, {}, {}, {}, {}, ",g_name, n, m, left_over.graph.num_nodes(), left_over.graph.num_edges(), left_over.solution.len()));
                                 for r in 0..rule_stats.len() {
                                     let rule = &rule_stats[r];
                                     if r < rule_stats.len()-1 {
@@ -149,7 +149,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                             },
                             Ok(Ok(None)) => {
                                 let mut line = String::new();
-                                line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,",g_name, n, m));
+                                line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,,",g_name, n, m));
                                 if rule_set == &0 || rule_set == &3 {
                                     line.push_str(",,,,,,,,,,,")
                                 }
@@ -170,7 +170,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         // interrupt join
                         join_handle.join().expect("should work").err();
                         let mut line = String::new();
-                        line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,",g_name, n, m));
+                        line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,,",g_name, n, m));
                         if rule_set == &0 || rule_set == &3 {
                             line.push_str(",,,,,,,,,,,")
                         }
@@ -206,7 +206,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                     Ok(Ok(Some((left_over, rule_stats)))) => {
                         left_over.graph.write_graph(File::create(format!("{}/{:?}_k_{}",dest,name,rule_set))?)?;
                         let mut line = String::new();
-                        line.push_str(&format!("{:?}, {}, {}, {}, {}, ",name, n, m, left_over.graph.num_nodes(), left_over.graph.num_edges()));
+                        line.push_str(&format!("{:?}, {}, {}, {}, {}, {}, ",name, n, m, left_over.graph.num_nodes(), left_over.graph.num_edges(), left_over.solution.len()));
                         for r in 0..rule_stats.len() {
                             let rule = &rule_stats[r];
                             if r < rule_stats.len()-1 {
@@ -227,7 +227,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                     },
                     Ok(Ok(None)) => {
                         let mut line = String::new();
-                        line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,",name, n, m));
+                        line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,,",name, n, m));
                         if rule_set == &0 || rule_set == &3 {
                             line.push_str(",,,,,,,,,,,")
                         }
@@ -246,7 +246,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 // is interrupted
                 join_handle.join().expect("should work").err();
                 let mut line = String::new();
-                line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,",name, n, m));
+                line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,,",name, n, m));
                 if rule_set == &0 || rule_set == &3 {
                     line.push_str(",,,,,,,,,,,")
                 }
