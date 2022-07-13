@@ -7,8 +7,8 @@ use crate::reduction_rules::Rule;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RuleStats {
     pub rule: Rule,
-    pub reduced_nodes: usize,
-    pub reduced_edges: usize,
+    pub reduced_nodes: u64,
+    pub reduced_edges: i64,
     pub time_took: u128,
     pub suc_apps: usize,
 }
@@ -25,7 +25,7 @@ impl RuleStats {
         }
     }
 
-    pub fn add(&mut self, n: usize, m: usize, time: u128) {
+    pub fn add(&mut self, n: u64, m: i64, time: u128) {
         self.reduced_nodes += n;
         self.reduced_edges += m;
         self.time_took += time;
@@ -45,24 +45,24 @@ impl DFVSInstance {
                 }
                 match rule_stat.rule {
                     Rule::SimpleRules => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before: u64 = self.graph.num_nodes() as u64;
+                        let edges_before: i64 = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         self.apply_simple_rules();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                     },
                     Rule::SCC => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let app = self.apply_advanced_scc_rule();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
@@ -70,11 +70,11 @@ impl DFVSInstance {
                         }
                     },
                     Rule::Dome => {
-                        let nodes_before = self.graph.num_nodes();
+                        let nodes_before = self.graph.num_nodes() as u64;
                         let start_time = Instant::now();
                         let app = self.apply_dome_rule();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
+                            nodes_before - self.graph.num_nodes() as u64,
                             0,
                             start_time.elapsed().as_millis()
                         );
@@ -83,13 +83,13 @@ impl DFVSInstance {
                         }
                     },
                     Rule::Clique => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let app = self.apply_exhaustive_clique_rule();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
@@ -97,13 +97,13 @@ impl DFVSInstance {
                         }
                     },
                     Rule::Core => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let app = self.apply_exhaustive_core_rule();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
@@ -111,13 +111,13 @@ impl DFVSInstance {
                         }
                     },
                     Rule::LinkNode => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let app = self.apply_link_node_rules();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
@@ -125,13 +125,13 @@ impl DFVSInstance {
                         }
                     },
                     Rule::Crown => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let app = self.apply_crown_rule();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
@@ -139,13 +139,13 @@ impl DFVSInstance {
                         }
                     },
                     Rule::TwinNodes => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let app = self.apply_twin_nodes_rule();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
@@ -153,13 +153,13 @@ impl DFVSInstance {
                         }
                     },
                     Rule::Dominion => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let app = self.apply_dominion_rule();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
@@ -167,14 +167,14 @@ impl DFVSInstance {
                         }
                     },
                     Rule::Petal => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         self.compute_and_set_fast_upper(true);
                         let app = self.apply_petal_rules();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
@@ -182,14 +182,14 @@ impl DFVSInstance {
                         }
                     },
                     Rule::AdvancedPetal => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         self.compute_and_set_fast_upper(true);
                         let app = self.apply_advanced_petal_rules();
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
@@ -197,13 +197,13 @@ impl DFVSInstance {
                         }
                     },
                     Rule::Lossy(q) => {
-                        let nodes_before = self.graph.num_nodes();
-                        let edges_before = self.graph.num_edges();
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let app = self.apply_lossy_rules(q);
                         rule_stat.add(
-                            nodes_before - self.graph.num_nodes(),
-                            edges_before - self.graph.num_edges(),
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
                             start_time.elapsed().as_millis()
                         );
                         if app {
