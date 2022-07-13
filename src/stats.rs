@@ -29,7 +29,9 @@ impl RuleStats {
         self.reduced_nodes += n;
         self.reduced_edges += m;
         self.time_took += time;
-        self.suc_apps += 1;
+        if n > 0 || m > 0 {
+            self.suc_apps += 1;
+        }
     }
 
 }
