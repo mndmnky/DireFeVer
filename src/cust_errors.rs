@@ -41,6 +41,7 @@ pub enum ProcessingError {
     ConversionError,
     RebuildError,
     InvalidSolution,
+    OutOfTime,
 }
 
 impl fmt::Display for ProcessingError {
@@ -51,6 +52,7 @@ impl fmt::Display for ProcessingError {
             Self::ConversionError => write!(f, "Conversion error"),
             Self::RebuildError => write!(f, "Rebuild error"),
             Self::InvalidSolution => write!(f, "InvalidSolution"),
+            Self::OutOfTime => write!(f, "OutOfTime"),
         }
     }
 }

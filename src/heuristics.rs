@@ -201,6 +201,7 @@ impl DFVSInstance {
         let mut upper_sol: FxHashSet<usize> = FxHashSet::default();
         // Simple rules are needed to check for circles. In addition it makes 
         // a lot of sense to have them in front of the `priority_list`.
+        assert!(!rule_priority.contains(&Rule::AdvancedPetal));
         assert_eq!(rule_priority[0], Rule::SimpleRules);
         loop {
             // perform reductions:
@@ -262,6 +263,7 @@ impl DFVSInstance {
         // Simple rules are needed to check for circles. In addition it makes 
         // a lot of sense to have them in front of the `priority_list`.
         assert_eq!(rule_priority[0], Rule::SimpleRules);
+        assert!(!rule_priority.contains(&Rule::AdvancedPetal));
         loop {
             // perform reductions:
             if !skip_initial_rules {
@@ -302,6 +304,7 @@ impl DFVSInstance {
         // Simple rules are needed to check for circles. In addition it makes 
         // a lot of sense to have them in front of the `priority_list`.
         assert_eq!(rule_priority[0], Rule::SimpleRules);
+        assert!(!rule_priority.contains(&Rule::AdvancedPetal));
         loop {
             // perform reductions:
             if !skip_initial_rules {

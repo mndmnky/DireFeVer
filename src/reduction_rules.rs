@@ -9,11 +9,13 @@ pub enum Rule {
     Clique,
     Core,
     SCC,
-    KFlower,
     LinkNode,
     Crown,
     TwinNodes,
     Dominion,
+    Petal,
+    AdvancedPetal,
+    Lossy(usize),
 }
 
 impl DFVSInstance {
@@ -216,30 +218,75 @@ impl DFVSInstance {
         change
     }
 
+    /// Applies either of two rules to the first node one of them appies to.
+    /// 1. Nodes which are adjacent to exactly one node disjunct cycle can be contracted.
+    /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 many node disjunct cycles
+    ///    can be added to the solution.
+    pub fn apply_advanced_petal_rules(&mut self) -> bool {
+        for node in self.graph.nodes().collect::<Vec<_>>() {
+            let (num_petals, left_over) = self.graph.count_petals_left_over(node);
+            if num_petals == 1 {
+                self.contract_node(node).expect("`node` exists"); 
+                return true
+            }
+            if let Some(upper) = self.effective_upper_bound() {
+                let lo_ins = DFVSInstance::new(left_over, None, None);
+                let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules], false);
+                // compute lower in left over 
+                if upper-lower < num_petals {
+                    self.add_to_solution(node).expect("`node` exists");
+                    return true
+                }
+            }
+        }
+        return false;
+    }
+
+    /// Applies either of two rules to the first node one of them appies to.
+    /// 1. Nodes which are adjacent to exactly one node disjunct cycle can be contracted.
+    /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 many node disjunct cycles
+    ///    can be added to the solution.
+    pub fn apply_petal_rules(&mut self) -> bool {
+        for node in self.graph.nodes().collect::<Vec<_>>() {
+            let num_petals = self.graph.count_petals(node);
+            if num_petals == 1 {
+                self.contract_node(node).expect("`node` exists"); 
+                return true
+            }
+            if let Some(upper) = self.effective_upper_bound() {
+                if upper < num_petals {
+                    self.add_to_solution(node).expect("`node` exists");
+                    return true
+                }
+            }
+        }
+        return false;
+    }
+
     /// An (hopefully) efficient implementation of the local k-flower rule. 
     /// 
-    /// Considers every daisy `D` with at least effective upper bound - effective lower bound + 2 patels
+    /// Considers every daisy `D` with at least effective upper bound - effective lower bound + 2 petals
     /// until some node was added to the solution.
-    /// Checks if `D` has at least effective upper bound - effective lower bound of G/D + 1 patels,
+    /// Checks if `D` has at least effective upper bound - effective lower bound of G/D + 1 petals,
     /// if so, adds the daisy core to the solution.
     ///
     /// Returns `true` if some node was added to the solution.
     /// For now also returns `false` if execution was interrupted by `self.interrupter`.
-    /// TODO: This can not be allowed to compute bounds with this as a reduction rule!
+    #[deprecated(since = "1.6.0", note = "Better use `apply_advanced_petal_rules()")]
     pub fn apply_local_k_daisy(&mut self) -> bool {
         if self.upper_bound.is_some() && self.lower_bound.is_some() {
             for node in self.graph.nodes().collect::<Vec<_>>() {
-                let daisy_patels = self.graph.strong_neighbors(node).expect("`node` exists");
-                if daisy_patels.len() < self.effective_upper_bound().expect("`self.upper_bound` is some") - 
+                let daisy_petals = self.graph.strong_neighbors(node).expect("`node` exists");
+                if daisy_petals.len() < self.effective_upper_bound().expect("`self.upper_bound` is some") - 
                     self.effective_lower_bound().expect("`self.lower_bound` is some") + 2 {
                         continue;
                 }
                 let mut left_over = self.graph.clone();
                 left_over.remove_node(node);
-                left_over.remove_nodes(daisy_patels.clone());
+                left_over.remove_nodes(daisy_petals.clone());
                 let mut left_over_ins = DFVSInstance::new(left_over, None, None);
                 left_over_ins.compute_and_set_lower(false);
-                if daisy_patels.len() > self.effective_upper_bound().expect("`self.upper_bound` is some") - 
+                if daisy_petals.len() > self.effective_upper_bound().expect("`self.upper_bound` is some") - 
                     left_over_ins.effective_lower_bound().expect("`self.lower_bound` is some") {
                     self.add_to_solution(node).expect("`node` exists");
                     return true;
@@ -267,8 +314,6 @@ impl DFVSInstance {
             s = spikes.len();
             //  let H = N(I) 
             head = self.graph.open_out_neighbors_of_set(&spikes);
-            // TODO: could we here just check one side of each edge?
-            // TODO: can be made more efficient
             spikes.extend(m2.iter().filter_map(|(a, b)| {
                     if head.contains(a) {
                         Some(*b)
@@ -339,6 +384,7 @@ impl DFVSInstance {
     /// to the solution then all nodes in `C` can be removed.
     ///
     /// Better use `apply_exhaustive_clique_rule()`
+    #[deprecated(since = "1.6.0", note = "Better use `apply_exhaustive_clique_rule()")]
     pub fn apply_clique_rule(&mut self) -> bool {
         let mut greedy_clique = self.graph.greedy_max_clique();
         let mut found_node = None;
@@ -364,6 +410,7 @@ impl DFVSInstance {
     /// clique, while having only incoming or outgoing neighbors outisde that clique: 
     ///
     /// Better use `apply_exhaustive_clique_rule()`
+    #[deprecated(since = "1.6.0", note = "Better use `apply_exhaustive_clique_rule()")]
     pub fn apply_advanced_clique_rule(&mut self) -> bool {
         let greedy_cluster = self.graph.greedy_max_clique();
         let mut addable_cluster = FxHashSet::default();
@@ -415,6 +462,7 @@ impl DFVSInstance {
     /// neighs` outside of the clique and then checking, if the `neighs` have a common clique
     /// core in `clique`. This core is then added to the solution and removed from the graph.
     /// Returns `true` if a core was added to the solution.
+    #[deprecated(since = "1.6.0", note = "Better use `apply_exhaustive_core_rule()")]
     pub fn apply_core_clique_rule(&mut self) -> bool {
         // Use heuristic to find max cluster 
         let mut greedy_cluster = self.graph.greedy_max_clique();
@@ -439,6 +487,7 @@ impl DFVSInstance {
 
     /// Applies the core rule (see documentation) on the maximal daisy.
     /// Returns `true` if daisy core was added to the solution.
+    #[deprecated(since = "1.6.0", note = "Better use `apply_exhaustive_core_rule()")]
     pub fn apply_daisy_core_rule(&mut self) -> bool {
         // Get max daisy
         if let Some((daisy_core, daisy_leaves)) = self.graph.get_max_strong_degree_node_and_neighbors() {
@@ -458,6 +507,7 @@ impl DFVSInstance {
 
     /// Applies the core rule on all possible daisies.
     /// Returns `true` if a core was added to the solution.
+    #[deprecated(since = "1.6.0", note = "Better use `apply_exhaustive_core_rule()")]
     pub fn apply_exhaustive_daisy_core_rule(&mut self) -> bool {
         let nodes = self.graph.nodes().collect::<Vec<_>>();
         for daisy_core in nodes {
@@ -480,6 +530,7 @@ impl DFVSInstance {
     /// Applies the core rule on the node with the minimal amount of minimal directed neighbors and
     /// looks for a core under those neighbors.
     /// Returns true if something happened.
+    #[deprecated(since = "1.6.0", note = "Better use `apply_exhaustive_core_rule()")]
     pub fn apply_min_direct_core_rule(&mut self) -> bool {
         // Get min direct degree node
         if let Some((node, min_neighbors)) = self.graph.get_min_min_direct_degree_node_and_neighbors() {
@@ -505,6 +556,7 @@ impl DFVSInstance {
     /// Applies the core rule for all the nodes in the graph, where we look for a core under the
     /// minimal directed neighbors of the node.
     /// Returns true if something happened.
+    #[deprecated(since = "1.6.0", note = "Better use `apply_exhaustive_core_rule()")]
     pub fn apply_exhaustive_min_direct_core_rule(&mut self) -> bool {
         // Get min direct degree node
         let nodes = self.graph.nodes().collect::<Vec<_>>();
@@ -538,6 +590,9 @@ impl DFVSInstance {
         let nodes = self.graph.nodes().collect::<Vec<_>>();
         for node in nodes {
             let strong_neighbors = self.graph.strong_neighbors(node).expect("`node` exists");
+            if strong_neighbors.is_empty() {
+                continue;
+            }
             let in_neighbors = self.graph.in_neighbors(node).as_ref().expect("`node` exists");
             let out_neighbors = self.graph.out_neighbors(node).as_ref().expect("`node` exists");
             let mut core = strong_neighbors.clone();
@@ -593,6 +648,18 @@ impl DFVSInstance {
         change
     }
 
+    /// Applies a lossy kernelization rule that adds strong cliques of size > `quality` to the
+    /// solution. 
+    /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst 1 + 1/`quallity` times as large.
+    pub fn apply_lossy_rules(&mut self, quality: usize) -> bool {
+        let greed_clique = self.graph.greedy_max_clique();
+        let len = greed_clique.len();
+        if len > quality {
+            self.add_all_to_solution(&greed_clique).expect("all exist");
+            return true
+        }
+        false
+    }
 
     /// Applies the different rules in the order of `priority_list` each time a rule reduced the instance the function starts from the top.
     /// The priority order should roughly be chosen by the time consumption of the respective rules. 
@@ -628,12 +695,6 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
-                    Rule::KFlower => {
-                        self.compute_and_set_upper_lower(true);
-                        if self.apply_local_k_daisy() {
-                            continue 'outer
-                        }
-                    },
                     Rule::LinkNode => {
                         if self.apply_link_node_rules() {
                             continue 'outer
@@ -651,6 +712,23 @@ impl DFVSInstance {
                     },
                     Rule::Dominion => {
                         if self.apply_dominion_rule() {
+                            continue 'outer
+                        }
+                    },
+                    Rule::Petal => {
+                        self.compute_and_set_fast_upper(true);
+                        if self.apply_petal_rules() {
+                            continue 'outer
+                        }
+                    },
+                    Rule::AdvancedPetal => {
+                        self.compute_and_set_fast_upper(true);
+                        if self.apply_advanced_petal_rules() {
+                            continue 'outer
+                        }
+                    },
+                    Rule::Lossy(q) => {
+                        if self.apply_lossy_rules(*q) {
                             continue 'outer
                         }
                     },
@@ -711,31 +789,31 @@ mod tests {
     }
 
 
-    #[test]
-    fn clique_rule_test() {
-        let gr = Cursor::new("7 22 0\n2\n1 3 4 5\n2 4 5\n2 3 5 6 7\n2 3 4 7\n4 7\n4 6 5\n");
-        let g = Digraph::read_graph(gr);
-        assert!(g.is_ok());
-        let g = g.unwrap();
-        let mut instance = DFVSInstance::new(g, None, None);
-        assert!(instance.apply_clique_rule());
-        assert_eq!(instance.solution, vec![1,3,4].into_iter().collect::<FxHashSet<usize>>());
-        // remaining graph size
-        assert_eq!(instance.graph.num_nodes(), 3);
-    }
+    // #[test]
+    // fn clique_rule_test() {
+    //     let gr = Cursor::new("7 22 0\n2\n1 3 4 5\n2 4 5\n2 3 5 6 7\n2 3 4 7\n4 7\n4 6 5\n");
+    //     let g = Digraph::read_graph(gr);
+    //     assert!(g.is_ok());
+    //     let g = g.unwrap();
+    //     let mut instance = DFVSInstance::new(g, None, None);
+    //     assert!(instance.apply_clique_rule());
+    //     assert_eq!(instance.solution, vec![1,3,4].into_iter().collect::<FxHashSet<usize>>());
+    //     // remaining graph size
+    //     assert_eq!(instance.graph.num_nodes(), 3);
+    // }
 
-    #[test]
-    fn adv_clique_rule_test() {
-        let gr = Cursor::new("7 26 0\n2 3 4 6\n1 3 4 7\n1 2 4 5 7\n1 2 3 5 6\n3 4\n1 4 5 7\n2 3 5 6\n");
-        let g = Digraph::read_graph(gr);
-        assert!(g.is_ok());
-        let g = g.unwrap();
-        let mut instance = DFVSInstance::new(g, None, None);
-        assert!(instance.apply_advanced_clique_rule());
-        assert_eq!(instance.solution, vec![2,3].into_iter().collect::<FxHashSet<usize>>());
-        // remaining graph size
-        assert_eq!(instance.graph.num_nodes(), 4);
-    }
+    // #[test]
+    // fn adv_clique_rule_test() {
+    //     let gr = Cursor::new("7 26 0\n2 3 4 6\n1 3 4 7\n1 2 4 5 7\n1 2 3 5 6\n3 4\n1 4 5 7\n2 3 5 6\n");
+    //     let g = Digraph::read_graph(gr);
+    //     assert!(g.is_ok());
+    //     let g = g.unwrap();
+    //     let mut instance = DFVSInstance::new(g, None, None);
+    //     assert!(instance.apply_advanced_clique_rule());
+    //     assert_eq!(instance.solution, vec![2,3].into_iter().collect::<FxHashSet<usize>>());
+    //     // remaining graph size
+    //     assert_eq!(instance.graph.num_nodes(), 4);
+    // }
 
     #[test]
     fn exh_clique_rule_test() {
@@ -775,72 +853,72 @@ mod tests {
         assert_eq!(instance.graph.num_edges(), 10);
     }
 
-    #[test]
-    fn core_clique_rule_test() {
-        let gr = Cursor::new("8 21 0\n2 3 8\n1 3 5 6\n1 2 7 8\n1\n1 2\n2 7\n3 6\n3\n");
-        let g = Digraph::read_graph(gr);
-        assert!(g.is_ok());
-        let g = g.unwrap();
-        let mut instance = DFVSInstance::new(g, None, None);
-        assert!(instance.apply_core_clique_rule());
-        assert_eq!(instance.solution, vec![2].into_iter().collect::<FxHashSet<usize>>());
-        // remaining graph size
-        assert_eq!(instance.graph.num_nodes(), 7);
-    }
+    // #[test]
+    // fn core_clique_rule_test() {
+    //     let gr = Cursor::new("8 21 0\n2 3 8\n1 3 5 6\n1 2 7 8\n1\n1 2\n2 7\n3 6\n3\n");
+    //     let g = Digraph::read_graph(gr);
+    //     assert!(g.is_ok());
+    //     let g = g.unwrap();
+    //     let mut instance = DFVSInstance::new(g, None, None);
+    //     assert!(instance.apply_core_clique_rule());
+    //     assert_eq!(instance.solution, vec![2].into_iter().collect::<FxHashSet<usize>>());
+    //     // remaining graph size
+    //     assert_eq!(instance.graph.num_nodes(), 7);
+    // }
 
-    #[test]
-    fn daisy_core_rule_test() {
-        let gr = Cursor::new("5 13 0\n2 3 4\n1 5\n1 2 4\n1 5\n2 3 4\n");
-        let g = Digraph::read_graph(gr);
-        assert!(g.is_ok());
-        let g = g.unwrap();
-        let mut instance = DFVSInstance::new(g, None, None);
-        assert!(instance.apply_daisy_core_rule());
-        assert_eq!(instance.solution, vec![0].into_iter().collect::<FxHashSet<usize>>());
-        // remaining graph size
-        assert_eq!(instance.graph.num_nodes(), 4);
-    }
+    // #[test]
+    // fn daisy_core_rule_test() {
+    //     let gr = Cursor::new("5 13 0\n2 3 4\n1 5\n1 2 4\n1 5\n2 3 4\n");
+    //     let g = Digraph::read_graph(gr);
+    //     assert!(g.is_ok());
+    //     let g = g.unwrap();
+    //     let mut instance = DFVSInstance::new(g, None, None);
+    //     assert!(instance.apply_daisy_core_rule());
+    //     assert_eq!(instance.solution, vec![0].into_iter().collect::<FxHashSet<usize>>());
+    //     // remaining graph size
+    //     assert_eq!(instance.graph.num_nodes(), 4);
+    // }
 
-    #[test]
-    fn exh_daisy_core_rule_test() {
-        let gr = Cursor::new("11 29 0\n2 3 4\n1 5\n1 2 4\n1 5\n2 3 4\n8 9 10 11\n8 9 10 11\n6 7\n6 7\n6 7\n6 7\n");
-        let g = Digraph::read_graph(gr);
-        assert!(g.is_ok());
-        let g = g.unwrap();
-        let mut instance = DFVSInstance::new(g, None, None);
-        assert!(!instance.apply_daisy_core_rule());
-        assert!(instance.apply_exhaustive_daisy_core_rule());
-        assert_eq!(instance.solution, vec![0].into_iter().collect::<FxHashSet<usize>>());
-        // remaining graph size
-        assert_eq!(instance.graph.num_nodes(), 10);
-    }
+    // #[test]
+    // fn exh_daisy_core_rule_test() {
+    //     let gr = Cursor::new("11 29 0\n2 3 4\n1 5\n1 2 4\n1 5\n2 3 4\n8 9 10 11\n8 9 10 11\n6 7\n6 7\n6 7\n6 7\n");
+    //     let g = Digraph::read_graph(gr);
+    //     assert!(g.is_ok());
+    //     let g = g.unwrap();
+    //     let mut instance = DFVSInstance::new(g, None, None);
+    //     assert!(!instance.apply_daisy_core_rule());
+    //     assert!(instance.apply_exhaustive_daisy_core_rule());
+    //     assert_eq!(instance.solution, vec![0].into_iter().collect::<FxHashSet<usize>>());
+    //     // remaining graph size
+    //     assert_eq!(instance.graph.num_nodes(), 10);
+    // }
 
-    #[test]
-    fn min_direct_core_rule_test() {
-        let gr = Cursor::new("5 13 0\n2 4 5\n1 3 5\n1 2\n1 3 5\n2 3 4\n");
-        let g = Digraph::read_graph(gr);
-        assert!(g.is_ok());
-        let g = g.unwrap();
-        let mut instance = DFVSInstance::new(g, None, None);
-        assert!(instance.apply_min_direct_core_rule());
-        assert_eq!(instance.solution, vec![1].into_iter().collect::<FxHashSet<usize>>());
-        // remaining graph size
-        assert_eq!(instance.graph.num_nodes(), 4);
-    }
+    // #[test]
+    // fn min_direct_core_rule_test() {
+    //     let gr = Cursor::new("5 13 0\n2 4 5\n1 3 5\n1 2\n1 3 5\n2 3 4\n");
+    //     let g = Digraph::read_graph(gr);
+    //     assert!(g.is_ok());
+    //     let g = g.unwrap();
+    //     let mut instance = DFVSInstance::new(g, None, None);
+    //     assert!(instance.apply_min_direct_core_rule());
+    //     assert_eq!(instance.solution, vec![1].into_iter().collect::<FxHashSet<usize>>());
+    //     // remaining graph size
+    //     assert_eq!(instance.graph.num_nodes(), 4);
+    // }
 
-    #[test]
-    fn exh_min_direct_core_rule_test() {
-        let gr = Cursor::new("8 25 0\n2 3 4 5\n1 3 4 5\n1 2 4 5\n2 3 6\n2 3 8\n1 7\n1 6 8\n1 7");
-        let g = Digraph::read_graph(gr);
-        assert!(g.is_ok());
-        let g = g.unwrap();
-        let mut instance = DFVSInstance::new(g, None, None);
-        assert!(!instance.apply_min_direct_core_rule());
-        assert!(instance.apply_exhaustive_min_direct_core_rule());
-        assert_eq!(instance.solution, vec![1, 2].into_iter().collect::<FxHashSet<usize>>());
-        // remaining graph size
-        assert_eq!(instance.graph.num_nodes(), 6);
-    }
+    // #[test]
+    // fn exh_min_direct_core_rule_test() {
+    //     let gr = Cursor::new("8 25 0\n2 3 4 5\n1 3 4 5\n1 2 4 5\n2 3 6\n2 3 8\n1 7\n1 6 8\n1 7");
+    //     let g = Digraph::read_graph(gr);
+    //     assert!(g.is_ok());
+    //     let g = g.unwrap();
+    //     let mut instance = DFVSInstance::new(g, None, None);
+    //     assert!(!instance.apply_min_direct_core_rule());
+    //     assert!(instance.apply_exhaustive_min_direct_core_rule());
+    //     assert_eq!(instance.solution, vec![1, 2].into_iter().collect::<FxHashSet<usize>>());
+    //     // remaining graph size
+    //     assert_eq!(instance.graph.num_nodes(), 6);
+    // }
 
     #[test]
     fn exhaustive_core_rule_test() {
@@ -915,7 +993,7 @@ mod tests {
         assert!(g.is_ok());
         let g = g.unwrap();
         let mut instance = DFVSInstance::new(g, Some(3), Some(2));
-        assert!(instance.apply_local_k_daisy());
+        assert!(instance.apply_advanced_petal_rules());
         assert_eq!(instance.solution, vec![0].into_iter().collect());
     }
 
@@ -1008,6 +1086,67 @@ mod tests {
         assert!(instance.apply_dominion_rule());
         assert!(instance.apply_dominion_rule());
         assert!(instance.apply_dominion_rule());
+    }
+
+    #[test]
+    fn petal_test() {
+        let gr = Cursor::new("10 22 0\n3 5\n4 8\n2 5\n1 8\n7 9\n\
+                             1 4 10\n2 3 9\n6 10\n5 7\n6 8\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let mut instance = DFVSInstance::new(g, None, None);
+        instance.compute_and_set_fast_upper(false);
+        assert!(instance.apply_petal_rules());
+        assert!(!instance.apply_petal_rules());
+        let gr = Cursor::new("9 22 0\n3 5\n4 8\n2 5\n1 8\n7 9\n\
+                             1 4 9\n2 3 9\n6 9\n5 7 6 8\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let mut instance = DFVSInstance::new(g, None, None);
+        instance.compute_and_set_fast_upper(false);
+        assert!(instance.apply_advanced_petal_rules());
+        assert!(instance.apply_advanced_petal_rules());
+        assert!(instance.apply_advanced_petal_rules());
+        assert!(instance.apply_advanced_petal_rules());
+        assert_eq!(instance.graph.num_nodes(), 5);
+    }
+
+    #[test]
+    fn lossy_test() {
+        let gr = Cursor::new("10 34 0\n2 3 7 9\n1 3 4 5\n1 2 4 5\n\
+                             2 3 5 8 10\n2 3 4 6\n5 7 8\n1 6 8\n\
+                             4 6 7\n1 10\n4 9\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let mut instance = DFVSInstance::new(g, None, None);
+        let mut clone = instance.clone();
+        let mut clone2 = instance.clone();
+        let mut moar = 0;
+        while instance.apply_lossy_rules(1) {
+            moar += 1;
+        }
+        assert_eq!(moar, 3);
+        assert_eq!(instance.graph.num_edges(), 0);
+        assert_eq!(instance.solution.len(), 6+3);
+        let mut moar = 0;
+        while clone.apply_lossy_rules(2) {
+            moar += 1;
+        }
+        assert_eq!(moar, 2);
+        clone.apply_simple_rules();
+        assert_eq!(clone.graph.num_nodes(), 0);
+        assert_eq!(clone.solution.len(), 6+2);
+        let mut moar = 0;
+        while clone2.apply_lossy_rules(3) {
+            moar += 1;
+        }
+        assert_eq!(moar, 1);
+        clone2.apply_simple_rules();
+        assert_eq!(clone2.graph.num_nodes(), 0);
+        assert_eq!(clone2.solution.len(), 6+1);
     }
 
 }

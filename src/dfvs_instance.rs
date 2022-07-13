@@ -130,19 +130,21 @@ impl DFVSInstance {
         false
     }
 
+    /// Computes a fast upper bound and a fitting solution. If the bound is better than the current
+    /// best, sets a new upper bound.
+    pub fn compute_and_set_fast_upper(&mut self, skip_initial_rules: bool) {
+        let upper = self.get_fast_upper(skip_initial_rules);
+        self.set_current_best(&upper);
+    }
+
     /// Computes and sets the best currently available upper- and lower bounds and the best current
     /// solution.
-    /// Returns `true` if bounds were computed and set, returns `false` if an interrupt signal was send
-    /// before any bounds could have been found.
     ///
     /// To access the best current solution use `self.current_best`.
-    pub fn compute_and_set_upper_lower(&mut self, skip_initial_rules: bool) -> bool {
-        if let Some((lower, _, set)) = self.get_best_bounds(skip_initial_rules) {
-            self.set_current_best(&set);
-            self.update_lower_bound(lower);
-            return true
-        }
-        false
+    pub fn compute_and_set_upper_lower(&mut self, skip_initial_rules: bool) {
+        let (lower, _, set) = self.get_best_bounds(skip_initial_rules);
+        self.set_current_best(&set);
+        self.update_lower_bound(lower);
     }
 
     /// Computes and sets a lower bound, if the computed lower bound is better then the old one. 
@@ -469,10 +471,11 @@ impl DFVSInstance {
     /// Returns the lower bound, the upper bound and the solution of the best upper bound.
     ///
     /// TODO: make more customizable if we have more time. 
-    pub fn get_best_bounds(&self, skip_initial_rules: bool) -> Option<(usize, usize, FxHashSet<usize>)> {
+    /// TODO: Update rules
+    pub fn get_best_bounds(&self, skip_initial_rules: bool) -> (usize, usize, FxHashSet<usize>) {
         let mut upper = Vec::new();
         let mut lower = Vec::new();
-        let rule_priority = &vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::Crown];
+        let rule_priority = &vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC];
         let bounds = self.clique_heuristic(&rule_priority, skip_initial_rules);
         upper.push(bounds.clone().2);
         lower.push(bounds.clone().0);
@@ -485,12 +488,22 @@ impl DFVSInstance {
             best_upper = better;
         }
         let best_lower = lower.iter().min().expect("There is at least one lower bound.");
-        return Some((*best_lower, best_upper.len(), best_upper)) 
+        return (*best_lower, best_upper.len(), best_upper) 
     }
 
-    /// Returns a good upper bound for the given instance, or `None` if an interrupt was send.
+    /// Returns a good upper bound for the given instance.
     pub fn get_good_upper(&self, skip_initial_rules: bool) -> FxHashSet<usize> {
         let rule_priority = &vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::Crown];
+        let mut upper = self.top_down_weight_heuristic(&Digraph::cai_weight, (0.2,0f64), &rule_priority, skip_initial_rules);
+        if let Some(better) = self.exhaustive_local_search(&upper) {
+            upper = better;
+        }
+        return upper
+    }
+
+    /// Returns a upper bound for the given instance.
+    pub fn get_fast_upper(&self, skip_initial_rules: bool) -> FxHashSet<usize> {
+        let rule_priority = &vec![Rule::SimpleRules];
         let mut upper = self.top_down_weight_heuristic(&Digraph::cai_weight, (0.2,0f64), &rule_priority, skip_initial_rules);
         if let Some(better) = self.exhaustive_local_search(&upper) {
             upper = better;
@@ -501,11 +514,10 @@ impl DFVSInstance {
     /// Finds the best lower bound under the currently implemented heuristics (or
     /// approximations).
     /// Applied heuristics only use simple rules.
-    /// Does not skip initial reductions.
     ///
     /// Returns the best lower bound found.
     pub fn get_some_lower(&self, skip_initial_rules: bool) -> usize {
-        let (lower1, _, _) = self.clique_heuristic(&vec![Rule::SimpleRules], false);
+        let (lower1, _, _) = self.clique_heuristic(&vec![Rule::SimpleRules], skip_initial_rules);
         let lower2 = self.disjunct_cycle_heuristic(&vec![Rule::SimpleRules], skip_initial_rules);
         return max(lower2, lower1)
     }

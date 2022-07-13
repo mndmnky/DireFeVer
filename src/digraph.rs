@@ -1,10 +1,10 @@
 //! Directed, dynamic graph datastructure.
-//! The main fields are the two adjacency lists `in_list` and `out_list` which respectively hold
+//! The main fields are the& two adjacency lists `in_list` and `out_list` which respectively hold
 //! all incoming and outgoing neighbors of a node in a `FxHashSet`. 
 
 use std::io::prelude::*;
 use std::io;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::cmp::min;
 use crate::cust_errors::ImportError;
 use crate::other_ds::NodeSet;
@@ -795,6 +795,160 @@ impl Digraph {
         }
         let reachable_for_some = self.directed_reachable(self.nodes().next().expect("`self` is not empty")); 
         reachable_for_some.len() != num_nodes
+    }
+
+    /// Counts the node disjunct cycles starting at `node` and creates a clone of `self` with all
+    /// nodes of the cycles removed.
+    pub fn count_petals_left_over(&self, node: usize) -> (usize, Self) {
+        let daisy_petals = self.strong_neighbors(node).expect("`node` exists");
+        let mut srcs = self.out_neighbors(node).as_ref().expect("`node` exitsts").clone();
+        srcs = srcs.difference(&daisy_petals).copied().collect();
+        let mut trgs = self.in_neighbors(node).as_ref().expect("`node` exitsts").clone();
+        trgs = trgs.difference(&daisy_petals).copied().collect();
+        let mut num_petals = daisy_petals.len();
+        let mut taken: HashMap<usize, usize> = HashMap::new();
+        for src in &srcs {
+            // All sources in `srcs` besides `src` and all nodes in `daisy_petals` can not be used
+            // for any other petal.
+            let mut preds: FxHashMap<usize, usize> = srcs.iter().copied()
+                .filter_map(|s| if s==*src {None} else{Some((s, s))}).collect();
+            preds.extend(daisy_petals.iter().map(|d| (d,d)));
+            let mut queue = VecDeque::new();
+            queue.push_back((*src, *src));
+            while !queue.is_empty() {
+                let (next, pref) = queue.pop_front().expect("`queue` not empty");
+                if preds.contains_key(&next) {
+                    // If `next` is marked.
+                    continue;
+                }
+                if taken.contains_key(&next) {
+                    if !taken.contains_key(&pref) {
+                        queue.push_back((*taken.get(&next).expect("`next` exists"), next));
+                        // keep in mind reverse if this route is taken
+                        preds.insert(next, pref);
+                        continue;
+                    } else {
+                        queue.push_back((*taken.get(&next).expect("`next` exists"), next));
+                        // keep in mind reverse if this route is taken
+                        self.out_neighbors(next).as_ref().expect("`src` exists").iter().filter(|n| **n != pref).for_each(|n| queue.push_back((*n, next)));
+                        preds.insert(next, pref);
+                        continue;
+                    }
+                } 
+                if trgs.contains(&next) {
+                    num_petals += 1;
+                    // backtrack
+                    let mut cur = next;
+                    let mut pre = pref;
+                    taken.insert(cur, pre);
+                    let mut before = None;
+                    while pre != *src {
+                        cur = pre;
+                        pre = *preds.get(&cur).expect("`cur` should have been traversed");
+                        if taken.contains_key(&cur) {
+                            if before.is_some() {
+                                taken.remove(&cur);
+                            }
+                            before = Some((cur,pre));
+                        } else {
+                            if let Some((p1, p2)) = before {
+                                assert_ne!(p1, p2);
+                                taken.insert(p1, p2);
+                                before = None;
+                            }
+                            taken.insert(cur, pre);
+                        }
+                    }
+                    // `taken` can be used to find the left over graph.
+                    taken.insert(*src, *src);
+                    break
+                }
+                self.out_neighbors(next).as_ref().expect("`src` exists").iter().for_each(|n| queue.push_back((*n, next)));
+                preds.insert(next, pref);
+            }
+        }
+        // Left over graph can be build by removing all nodes in 
+        // `taken`, `daisy_petals` and `node`
+        let mut clone = self.clone();
+        clone.remove_nodes(taken.keys().copied());
+        clone.remove_nodes(daisy_petals.iter().copied());
+        clone.remove_node(node);
+        (num_petals, clone)
+    }
+
+    /// Uses max-flow min-cut to compute the maximal amount of node disjunct cycles starting at
+    /// `node`.
+    pub fn count_petals(&self, node: usize) -> usize {
+        let daisy_petals = self.strong_neighbors(node).expect("`node` exists");
+        let mut srcs = self.out_neighbors(node).as_ref().expect("`node` exitsts").clone();
+        srcs = srcs.difference(&daisy_petals).copied().collect();
+        let mut trgs = self.in_neighbors(node).as_ref().expect("`node` exitsts").clone();
+        trgs = trgs.difference(&daisy_petals).copied().collect();
+        let mut num_petals = daisy_petals.len();
+        let mut taken: HashMap<usize, usize> = HashMap::new();
+        for src in &srcs {
+            // All sources in `srcs` besides `src` and all nodes in `daisy_petals` can not be used
+            // for any other petal.
+            let mut preds: FxHashMap<usize, usize> = srcs.iter().copied()
+                .filter_map(|s| if s==*src {None} else{Some((s, s))}).collect();
+            preds.extend(daisy_petals.iter().map(|d| (d,d)));
+            let mut queue = VecDeque::new();
+            queue.push_back((*src, *src));
+            while !queue.is_empty() {
+                let (next, pref) = queue.pop_front().expect("`queue` not empty");
+                if preds.contains_key(&next) {
+                    // If `next` is marked.
+                    continue;
+                }
+                if taken.contains_key(&next) {
+                    if !taken.contains_key(&pref) {
+                        queue.push_back((*taken.get(&next).expect("`next` exists"), next));
+                        // keep in mind reverse if this route is taken
+                        preds.insert(next, pref);
+                        continue;
+                    } else {
+                        queue.push_back((*taken.get(&next).expect("`next` exists"), next));
+                        // keep in mind reverse if this route is taken
+                        self.out_neighbors(next).as_ref().expect("`src` exists").iter().filter(|n| **n != pref).for_each(|n| queue.push_back((*n, next)));
+                        preds.insert(next, pref);
+                        continue;
+                    }
+                } 
+                if trgs.contains(&next) {
+                    num_petals += 1;
+                    // backtrack
+                    let mut cur = next;
+                    let mut pre = pref;
+                    taken.insert(cur, pre);
+                    let mut before = None;
+                    while pre != *src {
+                        cur = pre;
+                        pre = *preds.get(&cur).expect("`cur` should have been traversed");
+                        if taken.contains_key(&cur) {
+                            if before.is_some() {
+                                taken.remove(&cur);
+                            }
+                            before = Some((cur,pre));
+                        } else {
+                            if let Some((p1, p2)) = before {
+                                assert_ne!(p1, p2);
+                                taken.insert(p1, p2);
+                                before = None;
+                            }
+                            taken.insert(cur, pre);
+                        }
+                    }
+                    // `taken` can be used to find the left over graph.
+                    taken.insert(*src, *src);
+                    break
+                }
+                self.out_neighbors(next).as_ref().expect("`src` exists").iter().for_each(|n| queue.push_back((*n, next)));
+                preds.insert(next, pref);
+            }
+        }
+        // Left over graph can be build by removing all nodes in 
+        // `taken` and `daisy_petals`
+        num_petals
     }
 
 }
@@ -1849,6 +2003,35 @@ mod tests {
         assert!(path.is_some());
         let path = path.unwrap();
         assert_eq!(path.len(), 4);
+    }
+
+    #[test]
+    fn count_petals_test() {
+        let gr = Cursor::new("20 26 0\n2 3 4 9 14\n1\n1\n5\n6 10\n7 15\n8\n\
+                            1\n7\n11\n12\n13\n1\n6\n16\n17\n18\n19\n20\n1\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        assert_eq!(g.count_petals(0), 5);
+        let gr = Cursor::new("12 16 0\n2 5 12\n3\n4 6\n1\n8\n7\n1\n4 9\n\
+                            10\n1\n12\n4\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        assert_eq!(g.count_petals(0), 3);
+    }
+
+    #[test]
+    fn count_petals_left_over_test() {
+        let gr = Cursor::new("18 25 0\n2 3 5 6 8 16\n3\n1 4\n1\n7\n5\n6\n\
+                            9\n10 12\n11\n1\n13\n14\n15\n1\n17\n18\n10\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let (count, left_over) = g.count_petals_left_over(0);
+        assert_eq!(count, 3);
+        assert_eq!(left_over.num_nodes(), 5);
+        assert_eq!(left_over.num_edges(), 3);
     }
 
 }

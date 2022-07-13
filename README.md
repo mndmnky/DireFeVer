@@ -19,9 +19,10 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 	* Removal of edges connecting strongly connected components.
 	* Removal of edges that connect strongly connected components in a subgraph, where strong edges were removed. This rule is described in [^fn3].
 
-* `k`-flower rules, that include:
-	* Variations of the removal of nodes that are connected to `k`+1 node disjunct cycles. Where `k` denotes a upper bound of the DFVS instance. This rule is described in [^fn4].
-	* Variations of the removal of nodes that are connected to `k`+1-`l` node disjunct cycles `C`. Where `k` denotes a upper bound of the DFVS instance, and `l` denotes a lower bound of the subgraph, after the deletion of all nodes in `C`.
+* Petal rules that, for a node `v`, counts the adjacent, otherwise node disjunct cycles, also called petals. The first two rules are described in [^fn4].
+	* If `v` has one petal, `v` can be contracted.
+	* If `v` has more petals than the effective upper bound, `v` can be added to the solution.
+	* In an advanced version, if `v` has more petals than the effective upper bound minus the lower bound of the graph minus all nodes in `v`s petals (including) `v`, `v` can be added to the solution.
 
 * Core rules, that include:
 	* Variations of the clique rule, as described in [^fn3], there called "core" rule.
@@ -34,6 +35,8 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 	* The twin node rule, as described in [^fn6]. This rule looks for a pair of nodes with identical 3 reciprocal neighbors `v`, `w` and `u`, if there exists a reciprocal edge between any two nodes of `v`, `w` and `u`, those three nodes can be added to the cover.
 	* The unconfined (here dubbed dominion) rule as described in [^fn7].
 	* And the crown rule as described in [^fn8].
+
+* Lossy kernelization, that adds all nodes within strong cliques of size 1+`quality`. The size of an optimal solution of the resulting kernel can become at worst 1 + 1/`quallity` times as large.
 
 ### Heuristics
 * Lower bound heuristics:
@@ -59,6 +62,9 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 
 ### Parameterized Algorithm
 * A solver that transforms the instance into a directed arc feedback set instance, then solves by iterative compression and transformation into skew edge multicut instances. As described by [^fn1]
+
+### Statistics
+* Statistics for the reduction rules.
 
 ## Installation
 * Make sure `cargo` is installed.
@@ -141,6 +147,13 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 
 ### 1.5.1 
 * Updated README
+
+### 1.6.0
+* `count_patels()` implemented. Plus a version that returns the left-over graph.
+* `apply_petal_rules()` and `apply_advanced_petal_rules()` implemented and integrated.
+* `apply_lossy_rules()` implemented and integrated.
+* `kernel` binary.
+* `stats.rs`.
 
 ## Todo
 
