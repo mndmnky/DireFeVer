@@ -125,7 +125,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         let join_handle = threads[i].take().expect("`joined` is false");
                         match join_handle.join() {
                             Ok(Ok(Some((left_over, rule_stats)))) => {
-                                let file = File::create(format!("{}/{:?}_k_{}.csv",dest,g_name,rule_set))?;
+                                let file = File::create(format!("{}/{:?}_k_{}",dest,g_name,rule_set))?;
                                 left_over.graph.write_graph(file)?;
                                 let mut line = String::new();
                                 line.push_str(&format!("{:?}, {}, {}, {}, {}, ",g_name, n, m, left_over.graph.num_nodes(), left_over.graph.num_edges()));
@@ -204,7 +204,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 let join_handle = threads[i].take().expect("`joined` is false");
                 match join_handle.join() {
                     Ok(Ok(Some((left_over, rule_stats)))) => {
-                        left_over.graph.write_graph(File::create(format!("{}/{:?}_k_{}.csv",dest,name,rule_set))?)?;
+                        left_over.graph.write_graph(File::create(format!("{}/{:?}_k_{}",dest,name,rule_set))?)?;
                         let mut line = String::new();
                         line.push_str(&format!("{:?}, {}, {}, {}, {}, ",name, n, m, left_over.graph.num_nodes(), left_over.graph.num_edges()));
                         for r in 0..rule_stats.len() {
