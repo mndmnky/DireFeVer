@@ -305,6 +305,8 @@ impl DFVSInstance {
         // a lot of sense to have them in front of the `priority_list`.
         assert_eq!(rule_priority[0], Rule::SimpleRules);
         assert!(!rule_priority.contains(&Rule::AdvancedPetal));
+        // TODO: can be simple scc
+        assert!(rule_priority.contains(&Rule::SCC));
         loop {
             // perform reductions:
             if !skip_initial_rules {

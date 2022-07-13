@@ -231,7 +231,7 @@ impl DFVSInstance {
             }
             if let Some(upper) = self.effective_upper_bound() {
                 let lo_ins = DFVSInstance::new(left_over, None, None);
-                let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules], false);
+                let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules, Rule::SCC], false);
                 // compute lower in left over 
                 if upper-lower < num_petals {
                     self.add_to_solution(node).expect("`node` exists");

@@ -157,6 +157,9 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 
 ## Todo
 
+### Some other things
+* SCC in disjunct cycle heuristic can be simple. Check if simple is much faster than advanced
+
 ### Some time
 * Fixed rule priority lists.
 * Check if BST can be bounded further (current solution + current best lower bound > best solution -> return best solution).
