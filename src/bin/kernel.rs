@@ -31,13 +31,15 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal],
         vec![Rule::SimpleRules, Rule::Lossy(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
         vec![Rule::SimpleRules, Rule::Lossy(2), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
-        vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal, Rule::Lossy(1)]
+        vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal, Rule::Lossy(1), Rule::SimpleLossy2(2), Rule::AdvancedLossy2(2)],
+        vec![Rule::SimpleRules, Rule::Lossy(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal, Rule::SimpleLossy2(2), Rule::AdvancedLossy2(2)]
     ];
     let mut out_files = vec![
         File::create(format!("{}/kern_rules.csv",dest))?,
         File::create(format!("{}/simp_rules_lossy1.csv",dest))?,
         File::create(format!("{}/simp_rules_lossy2.csv",dest))?,
-        File::create(format!("{}/kern_rules_lossy1.csv",dest))?
+        File::create(format!("{}/kern_rules_all_lossy.csv",dest))?,
+        File::create(format!("{}/simp_rules_all_lossy.csv",dest))?
     ];
     writeln!(&mut out_files[0], "name, n, m, nk, mk, sk,\
              t_st, n_st, m_st,\
@@ -71,7 +73,17 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_domino, n_domino, m_domino,\
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap,\
-             t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1")?;
+             t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1,\
+             t_slossy2, n_slossy2, m_slossy2, maxoff_slossy2,\
+             t_alossy2, n_alossy2, m_alossy2, maxoff_alossy2")?;
+    writeln!(&mut out_files[4], "name, n, m, nk, mk, sk,\
+             t_st, n_st, m_st,\
+             t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1,\
+             t_dome, n_dome, m_dome,\
+             t_scc, n_scc, m_scc,\
+             t_ap, n_ap, m_ap,\
+             t_slossy2, n_slossy2, m_slossy2, maxoff_slossy2,\
+             t_alossy2, n_alossy2, m_alossy2, maxoff_alossy2")?;
     let mut graphs = Vec::new();
     for file in files {
         let graph = Digraph::read_graph(BufReader::new(File::open(file.clone())?))?;
@@ -80,7 +92,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     }
     let mut threads: Vec<Option<JoinHandle<Result<_,SendError<u8>>>>> = Vec::new();
     let mut threads_info: Vec<(Receiver<_>, bool, usize, usize, usize, OsString)> = Vec::new();
-    let mut timer: Vec<(Instant, Sender<u8>)> = Vec::new();
+    let mut timer: Vec<(Instant, Sender<u8>, bool)> = Vec::new();
 
     for (graph, name) in graphs.clone() {
         for p in 0..priorities.len() {
@@ -94,7 +106,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 start_sender.send(1)?;
                 eprintln!("Start {:?}, {}",n1, p);
                 let mut dfvsi = DFVSInstance::new(gr.clone(), None, None);
-                match dfvsi.exhaustive_rules_stats(&priority, interrupt_receiver) {
+                match dfvsi.exhaustive_fine_rules_stats(&priority, interrupt_receiver) {
                     Ok(rule_stats) => {
                         eprintln!("Done {:?}, {}",n1, p);
                         done_sender.send(1)?;
@@ -132,13 +144,19 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                                 for r in 0..rule_stats.len() {
                                     let rule = &rule_stats[r];
                                     if r < rule_stats.len()-1 {
-                                        if rule.rule == Rule::Lossy(1) || rule.rule == Rule::Lossy(2) {
+                                        if rule.rule == Rule::Lossy(1) || 
+                                            rule.rule == Rule::Lossy(2) || 
+                                                rule.rule == Rule::SimpleLossy2(2) || 
+                                                rule.rule == Rule::AdvancedLossy2(2) {
                                             line.push_str(&format!("{}, {}, {}, {},",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                                         } else {
                                             line.push_str(&format!("{}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
                                         }
                                     } else {
-                                        if rule.rule == Rule::Lossy(1) || rule.rule == Rule::Lossy(2) {
+                                        if rule.rule == Rule::Lossy(1) || 
+                                            rule.rule == Rule::Lossy(2) || 
+                                                rule.rule == Rule::SimpleLossy2(2) || 
+                                                rule.rule == Rule::AdvancedLossy2(2) {
                                             line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                                         } else {
                                             line.push_str(&format!("{}, {}, {} ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
@@ -156,6 +174,9 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                                 if rule_set == &3 {
                                     line.push_str(",,,,")
                                 }
+                                if rule_set == &3 || rule_set == &4 {
+                                    line.push_str(",,,,,,,,")
+                                }
                                 writeln!(out_files[*rule_set], "{}",line)?;
                             },
                             Ok(Err(_)) => eprintln!("Some thread paniced"),
@@ -164,22 +185,28 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         *joined = true;
                         break 'outer
                     }
-                    if timer[i].0.elapsed() >= ultimate {
+                    if !timer[i].2 && timer[i].0.elapsed() >= ultimate {
+                        eprintln!("try to interrupt {}", i);
                         timer[i].1.send(1)?; 
-                        let join_handle = threads[i].take().expect("`joined` is false");
-                        // interrupt join
-                        join_handle.join().expect("should work").err();
-                        let mut line = String::new();
-                        line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,,",g_name, n, m));
-                        if rule_set == &0 || rule_set == &3 {
-                            line.push_str(",,,,,,,,,,,")
-                        }
-                        if rule_set == &3 {
-                            line.push_str(",,,,")
-                        }
-                        writeln!(out_files[*rule_set], "{}",line)?;
-                        *joined = true;
-                        break 'outer
+                        timer[i].2 = true;
+                        // let join_handle = threads[i].take().expect("`joined` is false");
+                        // // interrupt join
+                        // join_handle.join().expect("should work").err();
+                        // eprintln!("interrupted");
+                        // let mut line = String::new();
+                        // line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,,",g_name, n, m));
+                        // if rule_set == &0 || rule_set == &3 {
+                        //     line.push_str(",,,,,,,,,,,")
+                        // }
+                        // if rule_set == &3 {
+                        //     line.push_str(",,,,")
+                        // }
+                        // if rule_set == &3 || rule_set == &4 {
+                        //     line.push_str(",,,,,,,,")
+                        // }
+                        // writeln!(out_files[*rule_set], "{}",line)?;
+                        // *joined = true;
+                        // break 'outer
                     }
                 }
             }
@@ -188,7 +215,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 start_receiver.recv()?;
             }
             // `start_receiver.try_recv()` should be ok by now.
-            timer.push((Instant::now(), interrupt_sender));
+            timer.push((Instant::now(), interrupt_sender, false));
         }
     }
 
@@ -201,6 +228,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 continue;
             }
             if recv.try_recv().is_ok() {
+                eprintln!("try to join {}", i);
                 let join_handle = threads[i].take().expect("`joined` is false");
                 match join_handle.join() {
                     Ok(Ok(Some((left_over, rule_stats)))) => {
@@ -210,13 +238,19 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         for r in 0..rule_stats.len() {
                             let rule = &rule_stats[r];
                             if r < rule_stats.len()-1 {
-                                if rule.rule == Rule::Lossy(1) || rule.rule == Rule::Lossy(2) {
+                                if rule.rule == Rule::Lossy(1) || 
+                                    rule.rule == Rule::Lossy(2) || 
+                                        rule.rule == Rule::SimpleLossy2(2) || 
+                                        rule.rule == Rule::AdvancedLossy2(2) {
                                     line.push_str(&format!("{}, {}, {}, {},",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                                 } else {
                                     line.push_str(&format!("{}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
                                 }
                             } else {
-                                if rule.rule == Rule::Lossy(1) || rule.rule == Rule::Lossy(2) {
+                                if rule.rule == Rule::Lossy(1) || 
+                                    rule.rule == Rule::Lossy(2) || 
+                                        rule.rule == Rule::SimpleLossy2(2) || 
+                                        rule.rule == Rule::AdvancedLossy2(2) {
                                     line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                                 } else {
                                     line.push_str(&format!("{}, {}, {} ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
@@ -234,27 +268,35 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         if rule_set == &3 {
                             line.push_str(",,,,")
                         }
+                        if rule_set == &3 || rule_set == &4 {
+                            line.push_str(",,,,,,,,")
+                        }
                         writeln!(out_files[*rule_set], "{}",line)?;
                     },
                     Ok(Err(_)) => eprintln!("Some thread paniced"),
                     Err(_) => eprintln!("Some thread paniced"),
                 }
+                eprintln!("joined {}", i);
                 *joined = true;
-            } else if timer[i].0.elapsed() >= ultimate {
+            } else if !timer[i].2 && timer[i].0.elapsed() >= ultimate {
                 timer[i].1.send(1)?; 
-                let join_handle = threads[i].take().expect("`joined` is false");
-                // is interrupted
-                join_handle.join().expect("should work").err();
-                let mut line = String::new();
-                line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,,",name, n, m));
-                if rule_set == &0 || rule_set == &3 {
-                    line.push_str(",,,,,,,,,,,")
-                }
-                if rule_set == &3 {
-                    line.push_str(",,,,")
-                }
-                writeln!(out_files[*rule_set], "{}",line)?;
-                *joined = true;
+                timer[i].2 = true;
+                // let join_handle = threads[i].take().expect("`joined` is false");
+                // // is interrupted
+                // join_handle.join().expect("should work").err();
+                // let mut line = String::new();
+                // line.push_str(&format!("{:?}, {}, {},,,,,,,,,,,,,,,,,,,",name, n, m));
+                // if rule_set == &0 || rule_set == &3 {
+                //     line.push_str(",,,,,,,,,,,")
+                // }
+                // if rule_set == &3 {
+                //     line.push_str(",,,,")
+                // }
+                // if rule_set == &3 || rule_set == &4 {
+                //     line.push_str(",,,,,,,,")
+                // }
+                // writeln!(out_files[*rule_set], "{}",line)?;
+                // *joined = true;
             } else {
                 remain += 1;
             }

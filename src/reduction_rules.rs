@@ -16,6 +16,8 @@ pub enum Rule {
     Petal,
     AdvancedPetal,
     Lossy(usize),
+    SimpleLossy2(usize),
+    AdvancedLossy2(usize),
 }
 
 impl DFVSInstance {
@@ -131,12 +133,68 @@ impl DFVSInstance {
         changed
     }
 
+    /// Applies the `LinkNode`-rule on `node`. If `node` has a strict strong degree of 2 (and no
+    /// other incident edges) it is contracted and its neighbors `neighs[0]` and `neighs[1]` are
+    /// merged or added to the solution if they are strongly connected. 
+    /// If there exists a strictly weak path between `neighs[0]` and `neighs[1]`, without there
+    /// being an edge connecting those two, this rule is not applicable.
+    /// "Small clique rule" only needs to be applied if clique rule wasn't applied before this
+    /// rules.
+    ///
+    /// # Panics 
+    /// Panics if `node` is not in `self.graph`.
+    pub fn single_link_node_rules(&mut self, node: usize) -> bool {
+        assert!(self.graph.has_node(node));
+        if let Some(neighs) = self.graph.is_link_node(node) {
+            if self.graph.strongly_connected(neighs[0], neighs[1]) {
+                // Clique rule has not been applied yet. 
+                self.add_to_solution(neighs[0]).expect("Given node exists");
+                self.add_to_solution(neighs[1]).expect("Given node exists");
+                return true;
+            } else {
+                // if there does not exist a edge from neighs[0] to neighs[1]:
+                if !self.graph.in_neighbors(neighs[1]).as_ref().expect("`neighs[1]` exists")
+                    .contains(&neighs[0]) {
+                    //  check if a weak path from neighs[1] to neighs[0] exist. 
+                    let mut weak_in_0 = self.graph.weak_in_neighbors(neighs[0]).expect("`neighs[0]` exists");
+                    weak_in_0.remove(&neighs[1]);
+                    let mut weak_out_1 = self.graph.weak_out_neighbors(neighs[1]).expect("`neighs[1]` exists");
+                    weak_out_1.remove(&neighs[0]);
+                    if !(weak_in_0.is_empty() || weak_out_1.is_empty()) {
+                        if self.graph.weak_path_exists_between(&weak_out_1, &weak_in_0) {
+                            return false
+                        }
+                    }
+                }
+                // if there does not exist a edge from neighs[1] to neighs[0]:
+                if !self.graph.in_neighbors(neighs[0]).as_ref().expect("`neighs[0]` exists")
+                    .contains(&neighs[1]) {
+                    //  check if a weak path from neighs[1] to neighs[0] exist. 
+                    let mut weak_in_1 = self.graph.weak_in_neighbors(neighs[1]).expect("`neighs[1]` exists");
+                    weak_in_1.remove(&neighs[0]);
+                    let mut weak_out_0 = self.graph.weak_out_neighbors(neighs[0]).expect("`neighs[0]` exists");
+                    weak_out_0.remove(&neighs[1]);
+                    if !(weak_in_1.is_empty() || weak_out_0.is_empty()) {
+                        if self.graph.weak_path_exists_between(&weak_out_0, &weak_in_1) {
+                            return false
+                        }
+                    }
+                }
+                self.contract_link_node(node, &neighs).expect("Nodes are suited for this operation");
+                return true
+            }
+        }
+        return false
+    }
+
     /// Traverses over all nodes with a strict strong degree of 3 (and no weak degree) and stores
     /// the neighbors `neighs` of each such nodes either in `connects` if any pair in `neighs` is
     /// connected by a strong edge, or in `un_connects` otherwise. 
     /// If for any set of `neighs` there already exists an entry in `connects`, adds all nodes in
     /// `neighs` to the solution and returns. If `neighs` are already in `un_connects`, stores
     /// `neighs` also in `connects`.
+    ///
+    /// TODO merge if no edge exists instead of using `un_connects`.
     pub fn apply_twin_nodes_rule(&mut self) -> bool {
         let mut connects = HashSet::new();
         let mut un_connects = HashSet::new();
@@ -162,7 +220,7 @@ impl DFVSInstance {
         }
         false
     }
-                   
+
     /// Finds all strongly connected components and removes the edges between them and single node
     /// components.
     ///
@@ -220,7 +278,8 @@ impl DFVSInstance {
 
     /// Applies either of two rules to the first node one of them appies to.
     /// 1. Nodes which are adjacent to exactly one node disjunct cycle can be contracted.
-    /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 many node disjunct cycles
+    /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 - the lower bound of the
+    ///    left over graph many node disjunct cycles
     ///    can be added to the solution.
     pub fn apply_advanced_petal_rules(&mut self) -> bool {
         for node in self.graph.nodes().collect::<Vec<_>>() {
@@ -242,6 +301,33 @@ impl DFVSInstance {
         return false;
     }
 
+    /// Applies either of two rules if any applies to `node`.
+    /// 1. Nodes which are adjacent to exactly one node disjunct cycle can be contracted.
+    /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 - the lower bound of the
+    ///    left over graph many node disjunct cycles
+    ///    can be added to the solution.
+    ///
+    /// # Panics 
+    /// Panics if `node` is not in `self.graph`.
+    pub fn single_advanced_petal_rules(&mut self, node: usize) -> bool {
+        assert!(self.graph.has_node(node));
+        let (num_petals, left_over) = self.graph.count_petals_left_over(node);
+        if num_petals == 1 {
+            self.contract_node(node).expect("`node` exists"); 
+            return true
+        }
+        if let Some(upper) = self.effective_upper_bound() {
+            let lo_ins = DFVSInstance::new(left_over, None, None);
+            let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules, Rule::SCC], false);
+            // compute lower in left over 
+            if upper-lower < num_petals {
+                self.add_to_solution(node).expect("`node` exists");
+                return true
+            }
+        }
+        return false;
+    }
+
     /// Applies either of two rules to the first node one of them appies to.
     /// 1. Nodes which are adjacent to exactly one node disjunct cycle can be contracted.
     /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 many node disjunct cycles
@@ -258,6 +344,29 @@ impl DFVSInstance {
                     self.add_to_solution(node).expect("`node` exists");
                     return true
                 }
+            }
+        }
+        return false;
+    }
+
+    /// Applies either of two rules if any applies to `node`.
+    /// 1. Nodes which are adjacent to exactly one node disjunct cycle can be contracted.
+    /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 many node disjunct cycles
+    ///    can be added to the solution.
+    ///
+    /// # Panics 
+    /// Panics if `node` is not in `self.graph`.
+    pub fn single_petal_rules(&mut self, node: usize) -> bool {
+        assert!(self.graph.has_node(node));
+        let num_petals = self.graph.count_petals(node);
+        if num_petals == 1 {
+            self.contract_node(node).expect("`node` exists"); 
+            return true
+        }
+        if let Some(upper) = self.effective_upper_bound() {
+            if upper < num_petals {
+                self.add_to_solution(node).expect("`node` exists");
+                return true
             }
         }
         return false;
@@ -334,7 +443,7 @@ impl DFVSInstance {
         false 
     }
 
-    /// Looks for an unconfined vertex and adds it to the solution if one was find.
+    /// Looks for an unconfined vertex and adds it to the solution if one was found.
     /// Returns `true` if a vertex was added to the solution and `false` otherwise.
     pub fn apply_dominion_rule(&mut self) -> bool {
         let nodes = self.graph.nodes().collect::<Vec<usize>>();
@@ -374,6 +483,51 @@ impl DFVSInstance {
                 // TODO: do diamond instead of break 
                 break
             }
+        }
+        false
+    }
+
+    /// Checks if `node` is an unconfined vertex and adds it to the solution if it is.
+    /// Returns `true` if `node` was added to the solution and `false` otherwise.
+    ///
+    /// # Panics 
+    /// Panics if `node` is not in `self.graph`.
+    pub fn single_dominion_rule(&mut self, node: usize) -> bool {
+        assert!(self.graph.has_node(node));
+        let mut set: FxHashSet<usize> = vec![node].into_iter().collect();
+        // Only the strong neighbors matter here.
+        let mut set_closed_n = self.graph.strong_neighbors(node).expect("`node` exists");
+        set_closed_n.insert(node);
+        loop {
+            let set_closed_n_clone = set_closed_n.clone();
+            let opt = set_closed_n_clone.iter().filter_map(|neigh| {
+                if set.contains(neigh) {
+                    return None
+                }
+                // TODO This can probably be relaxed:
+                if self.graph.min_weak_degree(*neigh).expect("`neigh` exists") != 0 {
+                    return None
+                }
+                let nn = self.graph.strong_neighbors(*neigh).expect("`neigh` exists");
+                if nn.intersection(&set).count() != 1 {
+                    return None
+                }
+                Some(nn.difference(&set_closed_n).copied().collect::<FxHashSet<usize>>())
+            }).min_by_key(|diff| diff.len());
+            if let Some(diff) = opt {
+                if diff.is_empty() {
+                    self.add_to_solution(node).expect("`node` exists");
+                    return true
+                } else if diff.len() == 1 {
+                    let s_prime = diff.into_iter().next().expect("`diff.len()` == 1");
+                    set.insert(s_prime);
+                    set_closed_n.extend(self.graph.strong_neighbors(s_prime).expect("`s_prime` exists"));
+                    set_closed_n.insert(s_prime);
+                    continue
+                }
+            }
+            // TODO: do diamond instead of break 
+            break
         }
         false
     }
@@ -453,6 +607,30 @@ impl DFVSInstance {
                 self.add_all_to_solution(&strong_neighborhood).expect("All nodes in the set exist");
                 return true
             }
+        }
+        false 
+    }
+
+    /// Applies the clique rule (see documentation) by checking for `node` in`self.graph` if `node` has a
+    /// minimum weak degree of 0. If so, checks if the strong neighborhood of `node` is a clique. 
+    /// If this is given as well, adds all strong neighbors of `node` to the solution and removes the 
+    /// neighborhood as well as `node`.
+    /// Returns `true` if anything happened.
+    ///
+    /// # Panics 
+    /// Panics if `node` is not in `self.graph`.
+    pub fn single_clique_rule(&mut self, node: usize) -> bool {
+        assert!(self.graph.has_node(node));
+        if self.graph.min_weak_degree(node) != Some(0) {
+            return false
+        }
+        // Get strong neighborhood 
+        let strong_neighborhood = self.graph.strong_neighbors(node).expect("`node` exists");
+        // Check if strong neighborhood is a cluster 
+        if self.graph.is_cluster(&strong_neighborhood) {
+            self.remove_node(node).expect("`node` exists");
+            self.add_all_to_solution(&strong_neighborhood).expect("All nodes in the set exist");
+            return true
         }
         false 
     }
@@ -625,6 +803,49 @@ impl DFVSInstance {
         false
     }
 
+    /// Applies the core rule for a given node `node` in the graph, where `node` is the fix point
+    /// of the core.
+    /// Returns true if something happened.
+    /// 
+    /// # Panics 
+    /// Panics if `node` is not in `self.graph`.
+    pub fn single_core_rule(&mut self, node: usize) -> bool {
+        assert!(self.graph.has_node(node));
+        let strong_neighbors = self.graph.strong_neighbors(node).expect("`node` exists");
+        if strong_neighbors.is_empty() {
+            return false;
+        }
+        let in_neighbors = self.graph.in_neighbors(node).as_ref().expect("`node` exists");
+        let out_neighbors = self.graph.out_neighbors(node).as_ref().expect("`node` exists");
+        let mut core = strong_neighbors.clone();
+        for nigh in in_neighbors {
+            core = self.graph.strong_closed_neighbors_in(*nigh, &core).expect("`node` exists");
+            if core.is_empty() {
+                break;
+            }
+        }
+        if !core.is_empty() {
+            for cn in core {
+                self.add_to_solution(cn).expect("This node exists");
+            }
+            return true
+        }
+        let mut core = strong_neighbors.clone();
+        for nigh in out_neighbors {
+            core = self.graph.strong_closed_neighbors_in(*nigh, &core).expect("`node` exists");
+            if core.is_empty() {
+                break;
+            }
+        }
+        if !core.is_empty() {
+            for cn in core {
+                self.add_to_solution(cn).expect("This node exists");
+            }
+            return true
+        }
+        false
+    }
+
     /// Applies the dome rule that removes edges that are not part of a minimal cycle.
     /// Returns true if something changed.
     pub fn apply_dome_rule(&mut self) -> bool {
@@ -648,9 +869,36 @@ impl DFVSInstance {
         change
     }
 
+    /// Applies the dome rule. Checks if `edge` is not part of a minimal cycle and in that case
+    /// removes it.
+    /// Returns true if something changed.
+    ///
+    /// # Panics
+    /// Panics if `edge` does not exist in `self.graph`.
+    ///
+    /// This rule can be applied for all weak_edges in `self.graph` before returning to the simple
+    /// rules. TODO: double check
+    pub fn single_dome_rule(&mut self, edge: (usize, usize)) -> bool {
+        assert!(self.graph.is_weak_edge(edge));
+        let (src, trg) = edge;
+        let weak_ins = self.graph.weak_in_neighbors(src).expect("`src` exists");
+        let ins = self.graph.in_neighbors(trg).as_ref().expect("`trg` exists");
+        if weak_ins.is_subset(ins) {
+            self.remove_edge(&(src, trg)).expect("This edge exists");
+            return true;
+        }
+        let weak_outs = self.graph.weak_out_neighbors(trg).expect("`src` exists");
+        let outs = self.graph.out_neighbors(src).as_ref().expect("`trg` exists");
+        if weak_outs.is_subset(outs) {
+            self.remove_edge(&(src, trg)).expect("This edge exists");
+            return true
+        }
+        false 
+    }
+
     /// Applies a lossy kernelization rule that adds strong cliques of size > `quality` to the
     /// solution. 
-    /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst 1 + 1/`quallity` times as large.
+    /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst 1 + 1/`quality` times as large.
     pub fn apply_lossy_rules(&mut self, quality: usize) -> bool {
         let greed_clique = self.graph.greedy_max_clique();
         let len = greed_clique.len();
@@ -659,6 +907,33 @@ impl DFVSInstance {
             return true
         }
         false
+    }
+
+    /// Applies a lossy kernelization rule that contracts nodes with at most `max(out_degree, in_degree)` <= `quality`.
+    /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst `quality` times as large.
+    pub fn apply_simple_lossy2_rules(&mut self, quality: usize) -> bool {
+        if let Some((node,neighs)) = self.graph.get_min_min_direct_degree_node_and_neighbors() {
+            if neighs.len() <= quality {
+                self.contract_node(node).expect("`node` exists");
+                return true
+            }
+            return false 
+        } 
+        false
+    }
+
+    /// Applies a lossy kernelization rule that contracts nodes incident to at most `quality` many
+    /// petals.
+    /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst `quality` times as large.
+    pub fn apply_advanced_lossy2_rules(&mut self, quality: usize) -> bool {
+        for node in self.graph.nodes().collect::<Vec<_>>() {
+            let num_petals = self.graph.count_petals(node);
+            if num_petals <= quality {
+                self.contract_node(node).expect("`node` exists"); 
+                return true
+            }
+        }
+        return false;
     }
 
     /// Applies the different rules in the order of `priority_list` each time a rule reduced the instance the function starts from the top.
@@ -729,6 +1004,16 @@ impl DFVSInstance {
                     },
                     Rule::Lossy(q) => {
                         if self.apply_lossy_rules(*q) {
+                            continue 'outer
+                        }
+                    },
+                    Rule::SimpleLossy2(q) => {
+                        if self.apply_simple_lossy2_rules(*q) {
+                            continue 'outer
+                        }
+                    },
+                    Rule::AdvancedLossy2(q) => {
+                        if self.apply_advanced_lossy2_rules(*q) {
                             continue 'outer
                         }
                     },

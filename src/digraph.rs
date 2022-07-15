@@ -252,6 +252,16 @@ impl Digraph {
         self.edges().count()
     }
 
+    /// Checks if `edge` exists.
+    pub fn has_edge(&self, edge: (usize, usize)) -> bool {
+        self.out_list.len() > edge.0 && self.out_list[edge.0].as_ref().filter(|outs| outs.contains(&edge.1)).is_some()
+    }
+
+    /// Checks if `edge` exists and does not have a reciprocal twin.
+    pub fn is_weak_edge(&self, edge: (usize, usize)) -> bool {
+        self.out_list.len() > edge.0 && self.out_list[edge.0].as_ref().filter(|outs| outs.contains(&edge.1)).is_some() && self.in_list[edge.0].as_ref().filter(|ins| ins.contains(&edge.1)).is_none()
+    }
+
     /// Checks if `node_a` is strongly connected to `node_b`.
     pub fn strongly_connected(&self, node_a: usize, node_b: usize) -> bool {
         if let Some(outs) = &self.out_list[node_a] {
@@ -2032,6 +2042,18 @@ mod tests {
         assert_eq!(count, 3);
         assert_eq!(left_over.num_nodes(), 5);
         assert_eq!(left_over.num_edges(), 3);
+    }
+
+    #[test]
+    fn is_weak_edge_test() {
+        let gr = Cursor::new("4 4 0\n2\n3\n2\n1\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        assert!(g.is_weak_edge((0,1)));
+        assert!(!g.is_weak_edge((1,0)));
+        assert!(!g.is_weak_edge((1,2)));
+        assert!(!g.is_weak_edge((2,3)));
     }
 
 }

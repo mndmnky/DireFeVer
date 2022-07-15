@@ -447,7 +447,7 @@ mod tests {
         assert!(g.is_ok());
         let g = g.unwrap();
         let dvfsi = DFVSInstance::new(g, None, None);
-        let lower_bound = dvfsi.disjunct_cycle_heuristic(&vec![Rule::SimpleRules], false);
+        let lower_bound = dvfsi.disjunct_cycle_heuristic(&vec![Rule::SimpleRules, Rule::SCC], false);
         assert_eq!(lower_bound, 1);
     }
 

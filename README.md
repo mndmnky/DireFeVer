@@ -36,7 +36,9 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 	* The unconfined (here dubbed dominion) rule as described in [^fn7].
 	* And the crown rule as described in [^fn8].
 
-* Lossy kernelization, that adds all nodes within strong cliques of size 1+`quality`. The size of an optimal solution of the resulting kernel can become at worst 1 + 1/`quallity` times as large.
+* Lossy kernelization rules:
+	* One, that adds all nodes within strong cliques of size 1+`quality`. The size of an optimal solution of the resulting kernel can become at worst 1 + 1/`quality` times as large.
+	* Second, which contracts nodes adjacent to at most `quality` petals. The size of an optimal solution of the resulting kernel can become at worst `quality` times as large. This rule can be simplified by using nodes with a maximal incoming- or outgoing degree of `quality`. But this might miss some valid nodes.
 
 ### Heuristics
 * Lower bound heuristics:
@@ -158,10 +160,20 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 ### 1.6.1 
 * `kernel` now also records the current solution size.
 
+### 1.7.0 
+* `apply_simple_lossy2_rules()` and `apply_advanced_lossy2_rules()` implemented and integrated.
+* Single node version of some reduction rules for better interruptability.
+* Adapted `kernel` binary.
+
 ## Todo
+
+### Next
+* TEST `single versions`
+* Test other lossy rules
 
 ### Some other things
 * SCC in disjunct cycle heuristic can be simple. Check if simple is much faster than advanced
+* Twin nodes can also be merged if no edges are between their neighbors
 
 ### Some time
 * Fixed rule priority lists.
