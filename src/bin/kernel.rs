@@ -32,14 +32,16 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         vec![Rule::SimpleRules, Rule::Lossy(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
         vec![Rule::SimpleRules, Rule::Lossy(2), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
         vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal, Rule::Lossy(1), Rule::SimpleLossy2(2), Rule::AdvancedLossy2(2)],
-        vec![Rule::SimpleRules, Rule::Lossy(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal, Rule::SimpleLossy2(2), Rule::AdvancedLossy2(2)]
+        vec![Rule::SimpleRules, Rule::Lossy(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal, Rule::SimpleLossy2(2), Rule::AdvancedLossy2(2)],
+        vec![Rule::SimpleRules, Rule::Lossy(1), Rule::SimpleLossy2(2), Rule::AdvancedLossy2(2), Rule::Dome, Rule::SCC]
     ];
     let mut out_files = vec![
         File::create(format!("{}/kern_rules.csv",dest))?,
         File::create(format!("{}/simp_rules_lossy1.csv",dest))?,
         File::create(format!("{}/simp_rules_lossy2.csv",dest))?,
         File::create(format!("{}/kern_rules_all_lossy.csv",dest))?,
-        File::create(format!("{}/simp_rules_all_lossy.csv",dest))?
+        File::create(format!("{}/simp_rules_all_lossy.csv",dest))?,
+        File::create(format!("{}/fast_lossy.csv",dest))?
     ];
     writeln!(&mut out_files[0], "name, n, m, nk, mk, sk,\
              t_st, n_st, m_st,\
@@ -84,6 +86,13 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_ap, n_ap, m_ap,\
              t_slossy2, n_slossy2, m_slossy2, maxoff_slossy2,\
              t_alossy2, n_alossy2, m_alossy2, maxoff_alossy2")?;
+    writeln!(&mut out_files[5], "name, n, m, nk, mk, sk,\
+             t_st, n_st, m_st,\
+             t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1,\
+             t_slossy2, n_slossy2, m_slossy2, maxoff_slossy2,\
+             t_alossy2, n_alossy2, m_alossy2, maxoff_alossy2,\
+             t_dome, n_dome, m_dome,\
+             t_scc, n_scc, m_scc")?;
     let mut graphs = Vec::new();
     for file in files {
         let graph = Digraph::read_graph(BufReader::new(File::open(file.clone())?))?;
@@ -176,6 +185,9 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                                 }
                                 if rule_set == &3 || rule_set == &4 {
                                     line.push_str(",,,,,,,,")
+                                }
+                                if rule_set == &5 {
+                                    line.push_str(",,,,,")
                                 }
                                 writeln!(out_files[*rule_set], "{}",line)?;
                             },
@@ -270,6 +282,9 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         }
                         if rule_set == &3 || rule_set == &4 {
                             line.push_str(",,,,,,,,")
+                        }
+                        if rule_set == &5 {
+                            line.push_str(",,,,,")
                         }
                         writeln!(out_files[*rule_set], "{}",line)?;
                     },

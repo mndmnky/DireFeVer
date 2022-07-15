@@ -165,6 +165,9 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Single node version of some reduction rules for better interruptability.
 * Adapted `kernel` binary.
 
+### 1.7.1 
+* Added fast lossy to `kernel`
+
 ## Todo
 
 ### Next
