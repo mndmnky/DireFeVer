@@ -115,7 +115,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 start_sender.send(1)?;
                 eprintln!("Start {:?}, {}",n1, p);
                 let mut dfvsi = DFVSInstance::new(gr.clone(), None, None);
-                match dfvsi.exhaustive_fine_rules_stats(&priority, interrupt_receiver) {
+                match dfvsi.exhaustive_fine_rules_stats(&priority, &interrupt_receiver) {
                     Ok(rule_stats) => {
                         eprintln!("Done {:?}, {}",n1, p);
                         done_sender.send(1)?;

@@ -38,7 +38,8 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 
 * Lossy kernelization rules:
 	* One, that adds all nodes within strong cliques of size 1+`quality`. The size of an optimal solution of the resulting kernel can become at worst 1 + 1/`quality` times as large.
-	* Second, which contracts nodes adjacent to at most `quality` petals. The size of an optimal solution of the resulting kernel can become at worst `quality` times as large. This rule can be simplified by using nodes with a maximal incoming- or outgoing degree of `quality`. But this might miss some valid nodes.
+	* Second, which contracts nodes adjacent to at most `quality` petals. Each application of this rule can increase the solution by `quality`-1. If the rule is applied only once, on only cycle disjunct nodes, the size of an optimal solution of the resulting kernel can become at worst `quality` times as large. If other lossy rules follow this, however, the resulting solution can become `quality` time the approximation factor of the other rules as large as an optimal solution.
+	This rule can be simplified by using nodes with a maximal incoming- or outgoing degree of `quality`. But this might miss some valid nodes.
 
 ### Heuristics
 * Lower bound heuristics:
@@ -168,11 +169,16 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 ### 1.7.1 
 * Added fast lossy to `kernel`
 
+### 1.7.2 
+* Added `experiments` bin with fixed experiments 
+* Added `GlobalLossy2` rule
+
 ## Todo
 
 ### Next
+* Speed-up rules
 * TEST `single versions`
-* Test other lossy rules
+* Test other lossy rules (test global rule)
 
 ### Some other things
 * SCC in disjunct cycle heuristic can be simple. Check if simple is much faster than advanced

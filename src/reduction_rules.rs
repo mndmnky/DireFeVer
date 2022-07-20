@@ -18,6 +18,7 @@ pub enum Rule {
     Lossy(usize),
     SimpleLossy2(usize),
     AdvancedLossy2(usize),
+    GlobalLossy2(usize),
 }
 
 impl DFVSInstance {
@@ -911,6 +912,8 @@ impl DFVSInstance {
 
     /// Applies a lossy kernelization rule that contracts nodes with at most `max(out_degree, in_degree)` <= `quality`.
     /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst `quality` times as large.
+    ///
+    /// Attention: This one does not work!
     pub fn apply_simple_lossy2_rules(&mut self, quality: usize) -> bool {
         if let Some((node,neighs)) = self.graph.get_min_min_direct_degree_node_and_neighbors() {
             if neighs.len() <= quality {
@@ -925,6 +928,8 @@ impl DFVSInstance {
     /// Applies a lossy kernelization rule that contracts nodes incident to at most `quality` many
     /// petals.
     /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst `quality` times as large.
+    ///
+    /// Attention: This one does not work!
     pub fn apply_advanced_lossy2_rules(&mut self, quality: usize) -> bool {
         for node in self.graph.nodes().collect::<Vec<_>>() {
             let num_petals = self.graph.count_petals(node);
@@ -936,10 +941,41 @@ impl DFVSInstance {
         return false;
     }
 
+    /// Applies a lossy kernelization rule that contracts nodes incident to at most `quality` many
+    /// petals.
+    /// This rule is applied on multiple different cycle disjunct nodes and with this maintaining a
+    /// approximation factor of `quality`. 
+    ///
+    /// If after the application of this rule another lossy rule is applied, the approximation
+    /// factor will not be stable. In the worst case the factor can become `quality` times the
+    /// quality of the applied lossy rules. E.g. if after this rule the lossy1 rules are applied
+    /// with a parameter of 1 (which normally leads to an approximation factor of 2) the new
+    /// approximation factor will be 4 in the worst case.
+    pub fn apply_lossy2_global_rule(&mut self, quality: usize) -> bool {
+        let mut nodes: FxHashSet<_> = self.graph.nodes().collect();
+        let mut something = false;
+        while !nodes.is_empty() {
+            let node = *nodes.iter().next().expect("not empty");
+            nodes.remove(&node);
+            let (num_petals, to_remove) = self.graph.count_petals_give_petals(node);
+            if num_petals <= quality {
+                self.contract_node(node).expect("`node` exists"); 
+                nodes = nodes.difference(&to_remove).copied().collect();
+                something = true;
+            }
+            
+        }
+        return something;
+    }
+
     /// Applies the different rules in the order of `priority_list` each time a rule reduced the instance the function starts from the top.
     /// The priority order should roughly be chosen by the time consumption of the respective rules. 
     ///
     /// Simple rules have to be the first rules applied.
+    ///
+    /// # Panics
+    /// Panics if rules are used that are not supposed to be used here. For example the
+    /// `GlobalLossy2` rule.
     ///
     /// TODO: short k flower (only on a few nodes with high strong degree).
     pub fn exhaustive_reductions(&mut self, priority_list: &Vec<Rule>) {
@@ -1017,6 +1053,7 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
+                    _ => panic!("Other rules should not be used here!"),
                 }
             }
             break

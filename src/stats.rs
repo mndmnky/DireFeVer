@@ -35,9 +35,94 @@ impl RuleStats {
         }
     }
 
+    /// Adds the values of `other` to `self`.
+    pub fn add_2(&mut self, other: &Self) {
+        assert_eq!(self.rule, other.rule);
+        self.reduced_edges += other.reduced_edges;
+        self.reduced_nodes += other.reduced_nodes;
+        self.time_took += other.time_took;
+        self.suc_apps += other.suc_apps;
+    }
+
+    /// Adds the values of `other` to `self`.
+    pub fn add_2_new(&self, other: &Self) -> Self {
+        assert_eq!(self.rule, other.rule);
+        RuleStats {
+            rule: self.rule,
+            reduced_edges: self.reduced_edges + other.reduced_edges,
+            reduced_nodes: self.reduced_nodes + other.reduced_nodes,
+            time_took: self.time_took + other.time_took,
+            suc_apps: self.suc_apps + other.suc_apps,
+        }
+    }
+
+    /// TODO first find out what we load into this.
+    /// Adds the values of each element of `other` to the matching elements of `this`. 
+    /// This function won't work properly if `this` and `other` dont hold matching elements in the
+    /// same order.
+    /// 
+    /// # Arguments
+    ///
+    /// * `order` - If set to `true` elements in `one` will be merged first, otherwise `other` will
+    /// be preferenced.
+    ///
+    /// # Panics
+    /// Panics if `other` is shorter than `this`.
+    pub fn merge_vecs(one: &Vec<Self>, other: &Vec<Self>, order: bool) -> Vec<Self> {
+        let mut other_it = other.iter();
+        let mut one_it = one.iter();
+        let mut out = Vec::new();
+        loop {
+            if let Some(next_other) = other_it.next() {
+                if let Some(next_one) = one_it.next() {
+                    if next_one.rule == next_other.rule {
+                        out.push(next_one.add_2_new(&next_other));
+                    } else {
+                        if order {
+                            out.push(next_one.clone());
+                        } else {
+                            out.push(next_other.clone());
+                        }
+                    }
+                } else {
+                    // add remaining one_its to out
+                    out.push(next_other.clone());
+                    while let Some(next_other) = other_it.next() {
+                        out.push(next_other.clone());
+                    }
+                    break
+                }
+            } else {
+                // add remaining one_its to out
+                while let Some(next_one) = one_it.next() {
+                    out.push(next_one.clone());
+                }
+                break
+            }
+        }
+        return out
+    }
+
 }
 
 impl DFVSInstance {
+
+    /// Applies the global lossy2 rule once on the instance and records the running time and the
+    /// kill count.
+    pub fn apply_global_lossy2_once(&mut self, param: usize) -> RuleStats {
+        let mut rs = RuleStats::new(Rule::GlobalLossy2(param));
+        let nodes_before: u64 = self.graph.num_nodes() as u64;
+        let edges_before: i64 = self.graph.num_edges() as i64;
+        let start_time = Instant::now();
+        self.apply_global_lossy2_once(param);
+        rs.add(
+            nodes_before - self.graph.num_nodes() as u64,
+            edges_before - self.graph.num_edges() as i64,
+            start_time.elapsed().as_millis()
+        );
+        rs
+    }
+
 
     /// Applies the different rules in the order of `priority_list` each time a rule reduced the instance the function starts from the top.
     /// Records the running time and kill count, as well as the number of successfull applications
@@ -46,7 +131,9 @@ impl DFVSInstance {
     /// The priority order should roughly be chosen by the time consumption of the respective rules. 
     ///
     /// Simple rules have to be the first rules applied.
-    pub fn exhaustive_fine_rules_stats(&mut self, priority_list: &Vec<Rule>, rec: Receiver<u8>) -> Result<Vec<RuleStats>, ProcessingError> {
+    /// # Panics 
+    /// Panics if `priority_list` contains a forbidden rule
+    pub fn exhaustive_fine_rules_stats(&mut self, priority_list: &Vec<Rule>, rec: &Receiver<u8>) -> Result<Vec<RuleStats>, ProcessingError> {
         let mut rule_stats: Vec<RuleStats> = priority_list.iter().map(|rule| RuleStats::new(*rule)).collect();
         'outer: loop {
             for rule_stat in &mut rule_stats {
@@ -387,6 +474,7 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
+                    _ => panic!(),
                 }
             }
             break
@@ -400,6 +488,9 @@ impl DFVSInstance {
     /// The priority order should roughly be chosen by the time consumption of the respective rules. 
     ///
     /// Simple rules have to be the first rules applied.
+    ///
+    /// # Panics 
+    /// Panics if `priority_list` contains a forbidden rule
     pub fn exhaustive_rules_stats(&mut self, priority_list: &Vec<Rule>, rec: Receiver<u8>) -> Result<Vec<RuleStats>, ProcessingError> {
         let mut rule_stats: Vec<RuleStats> = priority_list.iter().map(|rule| RuleStats::new(*rule)).collect();
         'outer: loop {
@@ -611,6 +702,7 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
+                    _ => panic!(),
                 }
             }
             break

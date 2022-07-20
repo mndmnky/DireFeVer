@@ -807,6 +807,82 @@ impl Digraph {
         reachable_for_some.len() != num_nodes
     }
 
+    /// Counts the node disjunct cycles starting at `node` and return them.
+    pub fn count_petals_give_petals(&self, node: usize) -> (usize, FxHashSet<usize>) {
+        let daisy_petals = self.strong_neighbors(node).expect("`node` exists");
+        let mut srcs = self.out_neighbors(node).as_ref().expect("`node` exitsts").clone();
+        srcs = srcs.difference(&daisy_petals).copied().collect();
+        let mut trgs = self.in_neighbors(node).as_ref().expect("`node` exitsts").clone();
+        trgs = trgs.difference(&daisy_petals).copied().collect();
+        let mut num_petals = daisy_petals.len();
+        let mut taken: HashMap<usize, usize> = HashMap::new();
+        for src in &srcs {
+            // All sources in `srcs` besides `src` and all nodes in `daisy_petals` can not be used
+            // for any other petal.
+            let mut preds: FxHashMap<usize, usize> = srcs.iter().copied()
+                .filter_map(|s| if s==*src {None} else{Some((s, s))}).collect();
+            preds.extend(daisy_petals.iter().map(|d| (d,d)));
+            let mut queue = VecDeque::new();
+            queue.push_back((*src, *src));
+            while !queue.is_empty() {
+                let (next, pref) = queue.pop_front().expect("`queue` not empty");
+                if preds.contains_key(&next) {
+                    // If `next` is marked.
+                    continue;
+                }
+                if taken.contains_key(&next) {
+                    if !taken.contains_key(&pref) {
+                        queue.push_back((*taken.get(&next).expect("`next` exists"), next));
+                        // keep in mind reverse if this route is taken
+                        preds.insert(next, pref);
+                        continue;
+                    } else {
+                        queue.push_back((*taken.get(&next).expect("`next` exists"), next));
+                        // keep in mind reverse if this route is taken
+                        self.out_neighbors(next).as_ref().expect("`src` exists").iter().filter(|n| **n != pref).for_each(|n| queue.push_back((*n, next)));
+                        preds.insert(next, pref);
+                        continue;
+                    }
+                } 
+                if trgs.contains(&next) {
+                    num_petals += 1;
+                    // backtrack
+                    let mut cur = next;
+                    let mut pre = pref;
+                    taken.insert(cur, pre);
+                    let mut before = None;
+                    while pre != *src {
+                        cur = pre;
+                        pre = *preds.get(&cur).expect("`cur` should have been traversed");
+                        if taken.contains_key(&cur) {
+                            if before.is_some() {
+                                taken.remove(&cur);
+                            }
+                            before = Some((cur,pre));
+                        } else {
+                            if let Some((p1, p2)) = before {
+                                assert_ne!(p1, p2);
+                                taken.insert(p1, p2);
+                                before = None;
+                            }
+                            taken.insert(cur, pre);
+                        }
+                    }
+                    // `taken` can be used to find the left over graph.
+                    taken.insert(*src, *src);
+                    break
+                }
+                self.out_neighbors(next).as_ref().expect("`src` exists").iter().for_each(|n| queue.push_back((*n, next)));
+                preds.insert(next, pref);
+            }
+        }
+        // Left over graph can be build by removing all nodes in 
+        // `taken`, `daisy_petals` and `node`
+        let mut petal_nodes: FxHashSet<_> = taken.keys().copied().chain(daisy_petals.iter().copied()).collect();
+        petal_nodes.insert(node);
+        (num_petals, petal_nodes)
+    }
+
     /// Counts the node disjunct cycles starting at `node` and creates a clone of `self` with all
     /// nodes of the cycles removed.
     pub fn count_petals_left_over(&self, node: usize) -> (usize, Self) {
