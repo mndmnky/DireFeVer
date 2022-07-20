@@ -297,14 +297,14 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                                 // Write file regarding of the `go` or how much was done before
                                 // the interrupt.
                                 if go == &0 {
-                                    write_simple_stuff(dest, g_name, &left_overs[0], heur[0], &mut out_files[0], &rules[0])?;
+                                    write_simple_stuff(dest, g_name, &left_overs[0], heur[0], &mut out_files[1], &rules[0])?;
                                 } else {
                                     write_complex_stuff(dest, g_name, &left_overs, &heur, &mut out_files, &rules)?;
                                 }
                             },
                             Ok(Ok(None)) => {
                                 if go == &0 {
-                                    write_simple_empty(g_name, &mut out_files[0])?;
+                                    write_simple_empty(g_name, &mut out_files[1])?;
                                 } else {
                                     write_complex_stuff(dest, g_name, &vec![], &vec![], &mut out_files, &vec![])?;
                                 }
@@ -438,7 +438,7 @@ fn write_complex_stuff(
                         line.push_str(&format!("{}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
                     }
                 }
-                writeln!(out_files[i], "{}",line)?;
+                writeln!(out_files[i+2], "{}",line)?;
             }
         } else {
             let mut line = String::new();
@@ -453,7 +453,7 @@ fn write_complex_stuff(
                 2 | 3 => line.push_str(",,,,,,,,,,,,,,,,,,,,,,,"), //??
                 _ => (),
             }
-            writeln!(out_files[i], "{}",line)?;
+            writeln!(out_files[i+2], "{}",line)?;
         }
     }
     Ok(())
