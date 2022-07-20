@@ -139,7 +139,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     // Process graphs in different threads.
     for (graph, name) in graphs.clone() {
         let dfvsi_org = DFVSInstance::new(graph.clone(), None, None);
-        dfvsi_org.get_fast_upper(false);
+        dfvsi_org.compute_and_set_fast_upper(false);
         let upper_init = dfvsi_org.upper_bound.expect("was set");
         // Write general information 
         writeln!(out_files[0], "{:?}, {}, {}, {}", name, graph.num_nodes(), graph.num_edges(), upper_init)?;
