@@ -138,7 +138,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     // Process graphs in different threads.
     for (graph, name) in graphs.clone() {
-        let dfvsi_org = DFVSInstance::new(graph.clone(), None, None);
+        let mut dfvsi_org = DFVSInstance::new(graph.clone(), None, None);
         dfvsi_org.compute_and_set_fast_upper(false);
         let upper_init = dfvsi_org.upper_bound.expect("was set");
         // Write general information 
