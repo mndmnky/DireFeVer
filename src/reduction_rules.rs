@@ -91,7 +91,6 @@ impl DFVSInstance {
         let mut next = nodes.clone();
         let mut all_new_effected = FxHashSet::default();
         while !next.is_empty() {
-            rounds +=1;
             let mut effected = FxHashSet::default();
             for node in next {
                 // Rule 1: Add nodes with loops to the solution, remove it:
