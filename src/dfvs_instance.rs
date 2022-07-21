@@ -281,12 +281,15 @@ impl DFVSInstance {
 
     /// Removes `node` from the graph.
     /// Returns effected nodes.
-    /// Throws an error is `node` was not in the graph.
+    /// Throws an error if `node` was not in the graph.
     pub fn remove_node_return_effected(&mut self, node: usize) -> 
-        Result<(FxHashSet<usize>, FxHashSet<usize>), ProcessingError>{
+        Result<FxHashSet<usize>, ProcessingError>{
+        let mut effected = FxHashSet::default();
         if let Some((ins, outs)) = self.graph.remove_node(node) {
-            self.reductions.push(Reduction::RemovedNode(node, (ins.clone(), outs.clone())));
-            return Ok((ins,outs))
+            effected.extend(ins.iter());
+            effected.extend(outs.iter());
+            self.reductions.push(Reduction::RemovedNode(node, (ins, outs)));
+            return Ok(effected)
         }
         return Err(ProcessingError::InvalidParameter("Given node was not contained in the graph.".to_owned()))
     }
@@ -298,6 +301,22 @@ impl DFVSInstance {
             self.remove_node(*node)?;
         }
         Ok(())
+    }
+
+    /// Removes all nodes in `node_set` from `self.graph`. 
+    /// Returns the effected nodes, that remain in `self.graph` and records the alteration if all nodes were added, returns a `ProcessingError` otherwise.
+    pub fn remove_nodes_return_effected(&mut self, node_set: &FxHashSet<usize>) -> Result<FxHashSet<usize>, ProcessingError> {
+        let mut effected = FxHashSet::default();
+        for node in node_set {
+            if let Some((ins, outs)) = self.graph.remove_node(*node) {
+                effected.extend(ins.iter());
+                effected.extend(outs.iter());
+                self.reductions.push(Reduction::RemovedNode(*node, (ins, outs)));
+            } else {
+                return Err(ProcessingError::InvalidParameter("Given node set was not completely contained in the graph.".to_owned()))
+            }
+        }
+        Ok(effected.into_iter().filter(|n| !node_set.contains(n)).collect())
     }
 
     /// Adds `node` to the solution and removes it from the graph.
@@ -315,11 +334,14 @@ impl DFVSInstance {
     /// Returns effected nodes.
     /// Throws an error is `node` was not in the graph.
     pub fn add_to_solution_return_effected(&mut self, node: usize) -> 
-        Result<(FxHashSet<usize>, FxHashSet<usize>), ProcessingError>{
+        Result<FxHashSet<usize>, ProcessingError>{
+        let mut effected = FxHashSet::default(); 
         if let Some((ins, outs)) = self.graph.remove_node(node) {
             self.solution.insert(node);
-            self.reductions.push(Reduction::AddedNode(node, (ins.clone(), outs.clone())));
-            return Ok((ins,outs))
+            effected.extend(ins.iter());
+            effected.extend(outs.iter());
+            self.reductions.push(Reduction::AddedNode(node, (ins, outs)));
+            return Ok(effected)
         }
         return Err(ProcessingError::InvalidParameter("Given node was not contained in the graph.".to_owned()))
     }
@@ -336,6 +358,23 @@ impl DFVSInstance {
             }
         }
         Ok(())
+    }
+
+    /// Adds all nodes in `node_set` to `self.solution` and removes them from `self.graph`. 
+    /// Returns all effected nodes still in `self.graph` and records the alteration if all nodes were added, returns a `ProcessingError` otherwise.
+    pub fn add_all_to_solution_return_effected(&mut self, node_set: &FxHashSet<usize>) -> Result<FxHashSet<usize>, ProcessingError> {
+        let mut effected = FxHashSet::default();
+        for node in node_set {
+            if let Some((ins, outs)) = self.graph.remove_node(*node) {
+                effected.extend(ins.iter());
+                effected.extend(outs.iter());
+                self.reductions.push(Reduction::AddedNode(*node, (ins, outs)));
+                self.solution.insert(*node);
+            } else {
+                return Err(ProcessingError::InvalidParameter("Given node set was not completely contained in the graph.".to_owned()))
+            }
+        }
+        Ok(effected.into_iter().filter(|n| !node_set.contains(n)).collect())
     }
 
     /// Removes `edge` and adds `node` with `edge.0` as an incoming neighbor and `edge.1` as an
@@ -411,6 +450,23 @@ impl DFVSInstance {
     /// `self.graph.num_reserved_nodes() + self.merge_nodes.len()` into the solution as a placeholder, and
     /// add information to `self.merge_nodes` to figure how the placeholder will be converted.
     pub fn contract_link_node(&mut self, link: usize, neighbors: &[usize; 2]) -> Result<(), ProcessingError> {
+        self.remove_node(link)?;
+        if let Some((single_neighs, doubles, betweens)) = self.graph.complete_merge(neighbors[0], neighbors[1]) {
+            // remove a node from the solution and pop placeholder.
+            self.reductions.push(Reduction::CompleteMerge(neighbors[0], neighbors[1], single_neighs, doubles, betweens));
+            let id = self.merge_nodes.len() + self.graph.num_reserved_nodes();
+            self.solution.insert(id);
+            self.merge_nodes.push((neighbors[1], (neighbors[0], link)));
+            return Ok(())
+        } 
+        Err(ProcessingError::InvalidParameter("Given nodes were not suited for this merge operation.".to_owned()))
+    }
+
+    /// Contracts `link` and merges `neighbors[0]` into `neighbors[1]`. Push
+    /// `self.graph.num_reserved_nodes() + self.merge_nodes.len()` into the solution as a placeholder, and
+    /// add information to `self.merge_nodes` to figure how the placeholder will be converted.
+    /// Returns the effected node that still remain in `self.graph`.
+    pub fn contract_link_node_return_effected(&mut self, link: usize, neighbors: &[usize; 2]) -> Result<(), ProcessingError> {
         self.remove_node(link)?;
         if let Some((single_neighs, doubles, betweens)) = self.graph.complete_merge(neighbors[0], neighbors[1]) {
             // remove a node from the solution and pop placeholder.
@@ -551,10 +607,7 @@ impl DFVSInstance {
     /// Returns a upper bound for the given instance.
     pub fn get_fast_upper(&self, skip_initial_rules: bool) -> FxHashSet<usize> {
         let rule_priority = &vec![Rule::SimpleRules];
-        let mut upper = self.top_down_weight_heuristic(&Digraph::cai_weight, (0.2,0f64), &rule_priority, skip_initial_rules);
-        if let Some(better) = self.exhaustive_local_search(&upper) {
-            upper = better;
-        }
+        let mut upper = self.top_down_weight_heuristic_only_local_simple(&Digraph::cai_weight, (0.2,0f64), skip_initial_rules);
         return upper
     }
 

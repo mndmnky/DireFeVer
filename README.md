@@ -174,8 +174,8 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Added `GlobalLossy2` rule
 
 ### 1.8.0-progress
-* Local rules 
-* Adapted heuristics
+* Local simple rules
+* Fast heuristic now actually fast. (Hopefully)
 
 ## Todo
 

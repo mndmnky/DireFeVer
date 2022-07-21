@@ -95,14 +95,12 @@ impl DFVSInstance {
             for node in next {
                 // Rule 1: Add nodes with loops to the solution, remove it:
                 if self.graph.in_neighbors(node).as_ref().expect("`node` is in graph.nodes()").contains(&node) {
-                    let (ins, outs) = self.add_to_solution_return_effected(node).expect("`node` exists");
-                    effected.extend(ins.iter());
-                    effected.extend(outs.iter());
+                    let this_effect = self.add_to_solution_return_effected(node).expect("`node` exists");
+                    effected.extend(this_effect.iter());
                 // Rule 2: Remove sources and sinks:
                 } else if self.graph.in_degree(node).expect("`node` is in graph.nodes()") == 0 || self.graph.out_degree(node).expect("`node` is in graph.nodes()") == 0 {
-                    let (ins, outs) = self.remove_node_return_effected(node).expect("`node` exists");
-                    effected.extend(ins.iter());
-                    effected.extend(outs.iter());
+                    let this_effect = self.remove_node_return_effected(node).expect("`node` exists");
+                    effected.extend(this_effect.iter());
                 // Rule 3.1: Replace node v with one incoming neighbor u and one outgoing neighbor w by
                 // the edge (u,w):
                 } else if self.graph.in_degree(node).expect("`node` is in graph.nodes()") == 1 && self.graph.out_degree(node).expect("`node` is in graph.nodes()") == 1 {
@@ -1110,46 +1108,6 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
-                    _ => panic!("Other rules should not be used here!"),
-                }
-            }
-            break
-        }
-    }
-
-    /// Applies the different rules in the order of `priority_list` to a given set of nodes. This
-    /// set of nodes adepts over time, depending of the nodes that were effected by the
-    /// reductions. Each time a rule reduced the instance the function starts from the top.
-    /// The priority order should roughly be chosen by the time consumption of the respective rules. 
-    ///
-    /// Simple rules have to be the first rules applied.
-    ///
-    /// # Panics
-    /// Panics if rules are used that are not supposed to be used here. For example the
-    /// `GlobalLossy2` rule.
-    ///
-    /// TODO: short k flower (only on a few nodes with high strong degree).
-    ///
-    /// Attention: currently only implemented for `Rule::SimpleRules`
-    pub fn exhaustive_local_reductions(&mut self, priority_list: &Vec<Rule>, start_set: &FxHashSet<usize>) {
-        assert_eq!(priority_list[0], Rule::SimpleRules);
-        let mut current_running = start_set.clone();
-        'outer: loop {
-            let mut new_effected: FxHashSet<usize> = FxHashSet::default();
-            for rule in priority_list {
-                match rule {
-                    Rule::SimpleRules => {
-                        let this_effected = self.apply_local_simple_rules(&current_running);
-                        current_running.extend(this_effected.iter());
-                        // `this_effected` will not go into `new_effected` since all was regarded
-                        // by simple rules
-                    },
-                    Rule::LinkNode => {
-                        // Skeleton
-                        // Use `current_running` to receive `new_changed`
-                        // Start over all earlier rules (including this) with `new_effected` to receive another `current_running`
-                        // Merge both `current_running` and continue
-                    }
                     _ => panic!("Other rules should not be used here!"),
                 }
             }
