@@ -127,9 +127,9 @@ impl DFVSInstance {
             }
             // Rule 0: Remove duplicate edges is implicit. 
             all_new_effected.extend(effected.iter());
-            next = effected;
+            next = effected.into_iter().filter(|n| self.graph.has_node(*n)).collect();
         }
-        all_new_effected
+        all_new_effected.into_iter().filter(|n| self.graph.has_node(*n)).collect()
     }
 
     /// Applies the `LinkNode`-rule that contracts nodes of a strict strong degree of 2 (and no
