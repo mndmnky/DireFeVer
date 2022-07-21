@@ -279,6 +279,18 @@ impl DFVSInstance {
         return Err(ProcessingError::InvalidParameter("Given node was not contained in the graph.".to_owned()))
     }
 
+    /// Removes `node` from the graph.
+    /// Returns effected nodes.
+    /// Throws an error is `node` was not in the graph.
+    pub fn remove_node_return_effected(&mut self, node: usize) -> 
+        Result<(FxHashSet<usize>, FxHashSet<usize>), ProcessingError>{
+        if let Some((ins, outs)) = self.graph.remove_node(node) {
+            self.reductions.push(Reduction::RemovedNode(node, (ins.clone(), outs.clone())));
+            return Ok((ins,outs))
+        }
+        return Err(ProcessingError::InvalidParameter("Given node was not contained in the graph.".to_owned()))
+    }
+
     /// Removes all nodes in `node_set` from `self.graph`. 
     /// Returns `Ok` and records the alteration if all nodes were added, returns a `ProcessingError` otherwise.
     pub fn remove_nodes(&mut self, node_set: &FxHashSet<usize>) -> Result<(), ProcessingError> {
@@ -295,6 +307,19 @@ impl DFVSInstance {
             self.solution.insert(node);
             self.reductions.push(Reduction::AddedNode(node, (ins, outs)));
             return Ok(())
+        }
+        return Err(ProcessingError::InvalidParameter("Given node was not contained in the graph.".to_owned()))
+    }
+
+    /// Adds `node` to the solution and removes it from the graph. 
+    /// Returns effected nodes.
+    /// Throws an error is `node` was not in the graph.
+    pub fn add_to_solution_return_effected(&mut self, node: usize) -> 
+        Result<(FxHashSet<usize>, FxHashSet<usize>), ProcessingError>{
+        if let Some((ins, outs)) = self.graph.remove_node(node) {
+            self.solution.insert(node);
+            self.reductions.push(Reduction::AddedNode(node, (ins.clone(), outs.clone())));
+            return Ok((ins,outs))
         }
         return Err(ProcessingError::InvalidParameter("Given node was not contained in the graph.".to_owned()))
     }
@@ -355,6 +380,28 @@ impl DFVSInstance {
         if let Some((ins, doubles)) = self.graph.merge_into_front(node, into) {
             self.reductions.push(Reduction::MergeForward(node, into, ins, doubles));
             return Ok(())
+        } 
+        Err(ProcessingError::InvalidParameter("Given nodes were not suited for this merge operation.".to_owned()))
+    }
+
+    /// Merges `node` with it's only incoming neighbor `into`.
+    /// Returns the outgoing neighbors.
+    /// Throws an error is `node` was not in the graph.
+    pub fn merge_into_back_return_front(&mut self, node: usize, into: usize) -> Result<FxHashSet<usize>, ProcessingError> {
+        if let Some((outs, doubles)) = self.graph.merge_into_back(node, into) {
+            self.reductions.push(Reduction::MergeBack(node, into, outs.clone(), doubles));
+            return Ok(outs)
+        } 
+        Err(ProcessingError::InvalidParameter("Given nodes were not suited for this merge operation.".to_owned()))
+    }
+
+    /// Merges `node` with it's only outgoing neighbor `into`.
+    /// Returns the incoming neighbors.
+    /// Throws an error is `node` was not in the graph.
+    pub fn merge_into_front_return_back(&mut self, node: usize, into: usize) -> Result<FxHashSet<usize>, ProcessingError> {
+        if let Some((ins, doubles)) = self.graph.merge_into_front(node, into) {
+            self.reductions.push(Reduction::MergeForward(node, into, ins.clone(), doubles));
+            return Ok(ins)
         } 
         Err(ProcessingError::InvalidParameter("Given nodes were not suited for this merge operation.".to_owned()))
     }

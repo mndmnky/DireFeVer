@@ -82,7 +82,7 @@ impl DFVSInstance {
 
     /// Performs a top down weight heuristic, where repeatedly the node with the highest weight, computed by
     /// `fn` given `weights`, is removed and added to the solution and some reduction rules are applied.
-    /// At each step each rule in `rule_priority` is executed exhaustively as described in
+    /// At each step each rule in `rule_priority` is executed locally and exhaustively as described in
     /// `self.exhaustive_reductions()`.
     /// Returns the solution found by the heuristic.
     ///
@@ -93,16 +93,19 @@ impl DFVSInstance {
         // Simple rules are needed to check for circles. In addition it makes 
         // a lot of sense to have them in front of the `priority_list`.
         assert_eq!(rule_priority[0], Rule::SimpleRules);
+        let mut currently_effected = self.graph.nodes().collect();
         loop {
             // perform reductions:
             if !skip_initial_rules {
-                clone_instance.exhaustive_reductions(rule_priority);
+                clone_instance.exhaustive_local_reductions(rule_priority, &currently_effected);
             } else {
                 skip_initial_rules = false;
             }
             if let Some(hw_node) = clone_instance.graph.get_max_weight_node(fun, weights) {
                 clone_instance.solution.insert(hw_node);
-                clone_instance.graph.remove_node(hw_node);
+                let (ins, outs) = clone_instance.graph.remove_node(hw_node).expect("`hw_node` exists");
+                currently_effected = ins.clone();
+                currently_effected.extend(outs);
             } else {
                 clone_instance.finallize_solution();
                 return clone_instance.solution
