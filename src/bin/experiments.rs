@@ -96,7 +96,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         File::create(format!("{}/sim_rules_lossy1_1lossy2_4.csv",dest))?
     ];
     writeln!(&mut out_files[0], "name, n, m, upper_bound, t_heur")?;
-    writeln!(&mut out_files[1], "name, nk, mk, sk,\
+    writeln!(&mut out_files[1], "name, nk, mk, sk, uk,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
              t_tn, n_tn, m_tn,\
@@ -106,25 +106,25 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_domino, n_domino, m_domino,\
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap")?;
-    writeln!(&mut out_files[2], "name, nk, mk, sk,\
+    writeln!(&mut out_files[2], "name, nk, mk, sk, uk,\
              t_st, n_st, m_st,\
              t_dome, n_dome, m_dome,\
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap")?;
-    writeln!(&mut out_files[3], "name, nk, mk, sk,\
+    writeln!(&mut out_files[3], "name, nk, mk, sk, uk,\
              t_st, n_st, m_st,\
              t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1,\
              t_dome, n_dome, m_dome,\
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap")?;
-    writeln!(&mut out_files[4], "name, nk, mk, sk,\
+    writeln!(&mut out_files[4], "name, nk, mk, sk, uk,\
              t_st, n_st, m_st,\
              t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1,\
              t_dome, n_dome, m_dome,\
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap,\
              t_1lossy2, n_1lossy2, m_1lossy2, maxoff_1lossy2")?;
-    writeln!(&mut out_files[5], "name, nk, mk, sk,\
+    writeln!(&mut out_files[5], "name, nk, mk, sk, uk,\
              t_st, n_st, m_st,\
              t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1,\
              t_dome, n_dome, m_dome,\
@@ -435,6 +435,7 @@ fn write_complex_stuff(
     dest: &str, g_name: &OsString, left_overs: &Vec<DFVSInstance>, heurs: &Vec<usize>, 
     out_files: &mut Vec<File>, rule_set: &Vec<Vec<RuleStats>>) -> Result<(), Box<dyn error::Error>> {
     let mut old_set = None;
+    let mut rule_iter = rule_set.iter();
     for i in 0..4 {
         if left_overs.len() > i {
             left_overs[i].graph.write_graph(File::create(format!("{}/{:?}_k_{}",dest,g_name,i+1))?)?;
@@ -442,28 +443,27 @@ fn write_complex_stuff(
             line.push_str(&format!("{:?}, {}, {}, {}, {}, ", g_name, left_overs[i].graph.num_nodes(), left_overs[i].graph.num_edges(), left_overs[i].solution.len(), heurs[i]));
             // merge rule sets 
             if old_set.is_none() {
-                old_set = Some(rule_set[i].clone());
+                old_set = Some(rule_iter.next().expect("`left_overs` still has elements").clone());
             } else {
-                let order = i == 2; 
-                old_set = Some(RuleStats::merge_vecs(&old_set.expect("is some"), &rule_set[i].clone(), order));
+                if i == 2 {
+                    old_set = Some(RuleStats::merge_vecs(&old_set.expect("is some"), rule_iter.next().expect("`left_overs` still has elements"), true));
+                }
+                let order = i>1;
+                old_set = Some(RuleStats::merge_vecs(&old_set.expect("is some"), rule_iter.next().expect("`left_overs` still has elements"), order));
             }
             let merged_set = old_set.as_ref().expect("expect").clone();
             for r in 0..merged_set.len() {
                 let rule = &merged_set[r];
                 if r < merged_set.len()-1 {
                     if rule.rule == Rule::Lossy(1) || 
-                        rule.rule == Rule::Lossy(2) || 
-                            rule.rule == Rule::SimpleLossy2(2) || 
-                            rule.rule == Rule::AdvancedLossy2(2) {
+                        rule.rule == Rule::GlobalLossy2(2) {
                         line.push_str(&format!("{}, {}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                     } else {
                         line.push_str(&format!("{}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
                     }
                 } else {
                     if rule.rule == Rule::Lossy(1) || 
-                        rule.rule == Rule::Lossy(2) || 
-                            rule.rule == Rule::SimpleLossy2(2) || 
-                            rule.rule == Rule::AdvancedLossy2(2) {
+                        rule.rule == Rule::GlobalLossy2(2) {
                         line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                     } else {
                         line.push_str(&format!("{}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges));

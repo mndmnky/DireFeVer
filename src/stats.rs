@@ -76,36 +76,31 @@ impl RuleStats {
     /// # Panics
     /// Panics if `other` is shorter than `this`.
     pub fn merge_vecs(one: &Vec<Self>, other: &Vec<Self>, order: bool) -> Vec<Self> {
-        let mut other_it = other.iter();
-        let mut one_it = one.iter();
         let mut out = Vec::new();
-        loop {
-            if let Some(next_other) = other_it.next() {
-                if let Some(next_one) = one_it.next() {
-                    if next_one.rule == next_other.rule {
-                        out.push(next_one.add_2_new(&next_other));
-                    } else {
-                        if order {
-                            out.push(next_one.clone());
-                        } else {
-                            out.push(next_other.clone());
-                        }
-                    }
-                } else {
-                    // add remaining one_its to out
-                    out.push(next_other.clone());
-                    while let Some(next_other) = other_it.next() {
-                        out.push(next_other.clone());
-                    }
-                    break
-                }
+        let mut e = 0;
+        let mut r = 0;
+        while e < one.len() && r < other.len() {
+            if one[e].rule == other[r].rule {
+                out.push(one[e].add_2_new(&other[r]));
+                e+=1;
+                r+=1;
             } else {
-                // add remaining one_its to out
-                while let Some(next_one) = one_it.next() {
-                    out.push(next_one.clone());
+                if order {
+                    out.push(one[e]);
+                    e+=1;
+                } else {
+                    out.push(other[r]);
+                    r+=1;
                 }
-                break
             }
+        }
+        while e < one.len() {
+            out.push(one[e]);
+            e+=1;
+        }
+        while r < other.len() {
+            out.push(other[r]);
+            r+=1;
         }
         return out
     }
