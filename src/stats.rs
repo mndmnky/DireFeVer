@@ -35,6 +35,13 @@ impl RuleStats {
         }
     }
 
+    pub fn add_mult(&mut self, n: u64, m: i64, time: u128, amount: usize) {
+        self.reduced_nodes += n;
+        self.reduced_edges += m;
+        self.time_took += time;
+        self.suc_apps += amount;
+    }
+
     /// Adds the values of `other` to `self`.
     pub fn add_2(&mut self, other: &Self) {
         assert_eq!(self.rule, other.rule);
@@ -114,11 +121,12 @@ impl DFVSInstance {
         let nodes_before: u64 = self.graph.num_nodes() as u64;
         let edges_before: i64 = self.graph.num_edges() as i64;
         let start_time = Instant::now();
-        self.apply_global_lossy2_once(param);
-        rs.add(
+        let amount = self.apply_lossy2_global_rule(param);
+        rs.add_mult(
             nodes_before - self.graph.num_nodes() as u64,
             edges_before - self.graph.num_edges() as i64,
-            start_time.elapsed().as_millis()
+            start_time.elapsed().as_millis(),
+            amount
         );
         rs
     }

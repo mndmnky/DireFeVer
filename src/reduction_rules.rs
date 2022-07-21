@@ -951,9 +951,9 @@ impl DFVSInstance {
     /// quality of the applied lossy rules. E.g. if after this rule the lossy1 rules are applied
     /// with a parameter of 1 (which normally leads to an approximation factor of 2) the new
     /// approximation factor will be 4 in the worst case.
-    pub fn apply_lossy2_global_rule(&mut self, quality: usize) -> bool {
+    pub fn apply_lossy2_global_rule(&mut self, quality: usize) -> usize {
         let mut nodes: FxHashSet<_> = self.graph.nodes().collect();
-        let mut something = false;
+        let mut num_contracted = 0;
         while !nodes.is_empty() {
             let node = *nodes.iter().next().expect("not empty");
             nodes.remove(&node);
@@ -961,11 +961,11 @@ impl DFVSInstance {
             if num_petals <= quality {
                 self.contract_node(node).expect("`node` exists"); 
                 nodes = nodes.difference(&to_remove).copied().collect();
-                something = true;
+                num_contracted += 1;
             }
             
         }
-        return something;
+        return num_contracted;
     }
 
     /// Applies the different rules in the order of `priority_list` each time a rule reduced the instance the function starts from the top.

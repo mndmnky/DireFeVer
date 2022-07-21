@@ -90,11 +90,12 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let mut out_files = vec![
         File::create(format!("{}/init_stats.csv",dest))?,
         File::create(format!("{}/kern_rules.csv",dest))?,
-        File::create(format!("{}/kern_rules_lossy1.csv",dest))?,
-        File::create(format!("{}/kern_rules_lossy1_1lossy2.csv",dest))?,
-        File::create(format!("{}/kern_rules_lossy1_1lossy2_4.csv",dest))?,
+        File::create(format!("{}/sim_rules.csv",dest))?,
+        File::create(format!("{}/sim_rules_lossy1.csv",dest))?,
+        File::create(format!("{}/sim_rules_lossy1_1lossy2.csv",dest))?,
+        File::create(format!("{}/sim_rules_lossy1_1lossy2_4.csv",dest))?
     ];
-    writeln!(&mut out_files[0], "name, n, m, upper_bound")?;
+    writeln!(&mut out_files[0], "name, n, m, upper_bound, t_heur")?;
     writeln!(&mut out_files[1], "name, nk, mk, sk,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
@@ -123,6 +124,13 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap,\
              t_1lossy2, n_1lossy2, m_1lossy2, maxoff_1lossy2")?;
+    writeln!(&mut out_files[5], "name, nk, mk, sk,\
+             t_st, n_st, m_st,\
+             t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1,\
+             t_dome, n_dome, m_dome,\
+             t_scc, n_scc, m_scc,\
+             t_ap, n_ap, m_ap,\
+             t_1lossy2, n_1lossy2, m_1lossy2, maxoff_1lossy2")?;
 
     // Read graphs
     let mut graphs = Vec::new();
@@ -131,18 +139,40 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         let name = file.file_stem().expect("Not a file.");
         graphs.push((graph, name.to_owned()));
     }
-
-    let mut threads: Vec<Option<JoinHandle<Result<_,ThreadErr>>>> = Vec::new();
-    let mut threads_info: Vec<(Receiver<_>, bool, usize, usize, usize, OsString)> = Vec::new();
-    let mut timer: Vec<(Instant, Sender<u8>, bool)> = Vec::new();
+    let mut cthreads: Vec<JoinHandle<_>> = Vec::new();
 
     // Process graphs in different threads.
     for (graph, name) in graphs.clone() {
-        let mut dfvsi_org = DFVSInstance::new(graph.clone(), None, None);
-        dfvsi_org.compute_and_set_fast_upper(false);
-        let upper_init = dfvsi_org.upper_bound.expect("was set");
-        // Write general information 
-        writeln!(out_files[0], "{:?}, {}, {}, {}", name, graph.num_nodes(), graph.num_edges(), upper_init)?;
+        cthreads.push(thread::spawn(move || {
+            let mut dfvsi_org = DFVSInstance::new(graph.clone(), None, None);
+            let start_time = Instant::now();
+            dfvsi_org.compute_and_set_fast_upper(false);
+            (dfvsi_org, name, start_time.elapsed().as_millis())
+    }));
+    }
+
+
+    let mut threads: Vec<Option<JoinHandle<Result<_,ThreadErr>>>> = Vec::new();
+    let mut threads_info: Vec<(Receiver<_>, bool, usize, OsString)> = Vec::new();
+    let mut timer: Vec<(Instant, Sender<u8>, bool)> = Vec::new();
+    let mut instances = Vec::new();
+
+    // Process graphs in different threads.
+    for jh in cthreads {
+        match jh.join() {
+            Err(_) => {
+                eprintln!("Some thread paniced");
+            },
+            Ok((dfvsi_org, name, time)) => {
+                let upper_init = dfvsi_org.upper_bound.expect("was set");
+                // Write general information 
+                writeln!(out_files[0], "{:?}, {}, {}, {}, {}", name, dfvsi_org.graph.num_nodes(), dfvsi_org.graph.num_edges(), upper_init, time)?;
+                instances.push((dfvsi_org, name));
+            },
+        }
+    }
+
+    for (dfvsi_org, name) in instances {
         for p in 0..2 {
             let (start_sender, start_receiver) = channel();
             let (interrupt_sender, interrupt_receiver) = channel();
@@ -273,7 +303,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                     };
                 }
             })));
-            threads_info.push((done_receiver, false, p, graph.num_nodes(), graph.num_edges(), name.clone()));
+            threads_info.push((done_receiver, false, p, name.clone()));
 
             // Try to join other threads until the current thread can start.
             let mut recvd = false;
@@ -285,7 +315,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                     break 'outer
                 }
                 for i in 0..timer.len() {
-                    let (recv, joined, go, _, _, g_name) = &mut threads_info[i];
+                    let (recv, joined, go, g_name) = &mut threads_info[i];
                     if *joined {
                         continue;
                     }
@@ -336,7 +366,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     while remain > 0 {
         remain = 0;
         for i in 0..timer.len() {
-            let (recv, joined, go, _, _, name) = &mut threads_info[i];
+            let (recv, joined, go, name) = &mut threads_info[i];
             if *joined {
                 continue;
             }
@@ -346,14 +376,14 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 match join_handle.join() {
                     Ok(Ok(Some((left_overs, rules, heur)))) => {
                         if go == &0 {
-                            write_simple_stuff(dest, name, &left_overs[0], heur[0], &mut out_files[0], &rules[0])?;
+                            write_simple_stuff(dest, name, &left_overs[0], heur[0], &mut out_files[1], &rules[0])?;
                         } else {
                             write_complex_stuff(dest, name, &left_overs, &heur, &mut out_files, &rules)?;
                         }
                     },
                     Ok(Ok(None)) => {
                         if go == &0 {
-                            write_simple_empty(name, &mut out_files[0])?;
+                            write_simple_empty(name, &mut out_files[1])?;
                         } else {
                             write_complex_stuff(dest, name, &vec![], &vec![], &mut out_files, &vec![])?;
                         }
@@ -417,9 +447,10 @@ fn write_complex_stuff(
                 let order = i == 2; 
                 old_set = Some(RuleStats::merge_vecs(&old_set.expect("is some"), &rule_set[i].clone(), order));
             }
-            for r in 0..rule_set[i].len() {
-                let rule = &rule_set[i][r];
-                if r < rule_set[i].len()-1 {
+            let merged_set = old_set.as_ref().expect("expect").clone();
+            for r in 0..merged_set.len() {
+                let rule = &merged_set[r];
+                if r < merged_set.len()-1 {
                     if rule.rule == Rule::Lossy(1) || 
                         rule.rule == Rule::Lossy(2) || 
                             rule.rule == Rule::SimpleLossy2(2) || 
@@ -438,8 +469,8 @@ fn write_complex_stuff(
                         line.push_str(&format!("{}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
                     }
                 }
-                writeln!(out_files[i+2], "{}",line)?;
             }
+            writeln!(out_files[i+2], "{}",line)?;
         } else {
             let mut line = String::new();
             line.push_str(&format!("{:?}, ", g_name));
