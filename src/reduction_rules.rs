@@ -338,7 +338,7 @@ impl DFVSInstance {
     ///    left over graph many node disjunct cycles
     ///    can be added to the solution.
     /// Added some pruning rules to speed this up.
-    pub fn apply_advanced_petal_rules(&mut self) -> bool {
+    pub fn apply_fast_advanced_petal_rules(&mut self) -> bool {
         for node in self.graph.nodes().collect::<Vec<_>>() {
             let strong_degree = self.graph.strong_degree(node).expect("`node` exists");
             let min_dir = self.graph.min_direct_degree(node).expect("`node` exists");
@@ -355,7 +355,7 @@ impl DFVSInstance {
                 if strong_degree*2 >= upper {
                     let (num_petals, left_over) = self.graph.count_petals_left_over(node);
                     let lo_ins = DFVSInstance::new(left_over, None, None);
-                    let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules, Rule::SCC], false);
+                    let lower = lo_ins.clique_heuristic_lower(&vec![Rule::SimpleRules], false);
                     // compute lower in left over 
                     if upper-lower < num_petals {
                         self.add_to_solution(node).expect("`node` exists");
@@ -375,7 +375,7 @@ impl DFVSInstance {
     ///
     /// # Panics 
     /// Panics if `node` is not in `self.graph`.
-    pub fn single_advanced_petal_rules(&mut self, node: usize) -> bool {
+    pub fn single_fast_advanced_petal_rules(&mut self, node: usize) -> bool {
         assert!(self.graph.has_node(node));
         let strong_degree = self.graph.strong_degree(node).expect("`node` exists");
         let min_dir = self.graph.min_direct_degree(node).expect("`node` exists");
@@ -392,12 +392,65 @@ impl DFVSInstance {
             if strong_degree*2 >= upper {
                 let (num_petals, left_over) = self.graph.count_petals_left_over(node);
                 let lo_ins = DFVSInstance::new(left_over, None, None);
-                let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules, Rule::SCC], false);
+                let lower = lo_ins.clique_heuristic_lower(&vec![Rule::SimpleRules, Rule::SCC], false);
                 // compute lower in left over 
                 if upper-lower < num_petals {
                     self.add_to_solution(node).expect("`node` exists");
                     return true
                 }
+            }
+        }
+        return false;
+    }
+
+    /// Applies either of two rules to the first node one of them appies to.
+    /// 1. Nodes which are adjacent to exactly one node disjunct cycle can be contracted.
+    /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 - the lower bound of the
+    ///    left over graph many node disjunct cycles
+    ///    can be added to the solution.
+    /// Added some pruning rules to speed this up.
+    pub fn apply_advanced_petal_rules(&mut self) -> bool {
+        for node in self.graph.nodes().collect::<Vec<_>>() {
+            let (num_petals, left_over) = self.graph.count_petals_left_over(node);
+            if num_petals == 1 {
+                self.contract_node(node).expect("`node` exists"); 
+                return true
+            }
+            if let Some(upper) = self.effective_upper_bound() {
+                let lo_ins = DFVSInstance::new(left_over, None, None);
+                let lower = lo_ins.clique_heuristic_lower(&vec![Rule::SimpleRules], false);
+                // compute lower in left over 
+                if upper-lower < num_petals {
+                    self.add_to_solution(node).expect("`node` exists");
+                    return true
+                }
+            }
+        }
+        return false;
+    }
+
+    /// Applies either of two rules if any applies to `node`.
+    /// 1. Nodes which are adjacent to exactly one node disjunct cycle can be contracted.
+    /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 - the lower bound of the
+    ///    left over graph many node disjunct cycles
+    ///    can be added to the solution.
+    ///
+    /// # Panics 
+    /// Panics if `node` is not in `self.graph`.
+    pub fn single_advanced_petal_rules(&mut self, node: usize) -> bool {
+        assert!(self.graph.has_node(node));
+        let (num_petals, left_over) = self.graph.count_petals_left_over(node);
+        if num_petals == 1 {
+            self.contract_node(node).expect("`node` exists"); 
+            return true
+        }
+        if let Some(upper) = self.effective_upper_bound() {
+            let lo_ins = DFVSInstance::new(left_over, None, None);
+            let lower = lo_ins.clique_heuristic_lower(&vec![Rule::SimpleRules], false);
+            // compute lower in left over 
+            if upper-lower < num_petals {
+                self.add_to_solution(node).expect("`node` exists");
+                return true
             }
         }
         return false;

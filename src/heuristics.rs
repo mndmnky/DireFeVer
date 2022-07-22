@@ -346,6 +346,7 @@ impl DFVSInstance {
     ///
     /// # Panics
     /// Panics if the first rule of `rule_priority` is not `Rule::SimpleRules`.
+    #[deprecated(since = "1.8.0", note = "use `clique_heuristic_lower()` instead")]
     pub fn lower_bound_clique_heuristic(&self, rule_priority: &Vec<Rule>, mut skip_initial_rules: bool) -> usize {
         let mut clone_instance = self.clone();
         let mut lower_bound = 0;
