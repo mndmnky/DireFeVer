@@ -185,13 +185,11 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 if p == 0 {
                     match dfvsi.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
                         Ok(rule_stats) => {
-                            let upper = dfvsi
-                                .top_down_weight_heuristic(
-                                    &Digraph::cai_weight, (0.2,0.0), &vec![Rule::SimpleRules], true
-                                    );
+                            dfvsi.compute_and_set_fast_upper(true);
+                            let upper = dfvsi.upper_bound.expect("was set");
                             eprintln!("Done {:?}, {}",n1, p);
                             done_sender.send(1)?;
-                            return Ok(Some((vec![dfvsi], vec![rule_stats], vec![upper.len()])));
+                            return Ok(Some((vec![dfvsi], vec![rule_stats], vec![upper])));
                         },
                         Err(_) => {
                             eprintln!("Interrupted {:?}, {}",n1, p);
@@ -224,11 +222,9 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         return Ok(Some((kernels, rules, uppers)));
                     }
                     // Else compute heuristic ...
-                    let upper = dfvsi
-                        .top_down_weight_heuristic(
-                            &Digraph::cai_weight, (0.2,0.0), &vec![Rule::SimpleRules], true
-                            );
-                    uppers.push(upper.len());
+                    dfvsi.compute_and_set_fast_upper(true);
+                    let upper = dfvsi.upper_bound.expect("was set");
+                    uppers.push(upper);
                     // ... and continue with lossy1 + simple rules 
                     match dfvsi.exhaustive_fine_rules_stats(&priorities[2], &interrupt_receiver) {
                         Ok(rule_stats) => {
@@ -249,11 +245,9 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         return Ok(Some((kernels, rules, uppers)));
                     }
                     // Else compute heuristic ...
-                    let upper = dfvsi
-                        .top_down_weight_heuristic(
-                            &Digraph::cai_weight, (0.2,0.0), &vec![Rule::SimpleRules], true
-                            );
-                    uppers.push(upper.len());
+                    dfvsi.compute_and_set_fast_upper(true);
+                    let upper = dfvsi.upper_bound.expect("was set");
+                    uppers.push(upper);
                     // ... and continue with global lossy2 once + simple rules 
                     let global2 = dfvsi.apply_global_lossy2_once(2);
                     rules.push(vec![global2]);
@@ -276,21 +270,17 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         return Ok(Some((kernels, rules, uppers)));
                     }
                     // Else compute heuristic ...
-                    let upper = dfvsi
-                        .top_down_weight_heuristic(
-                            &Digraph::cai_weight, (0.2,0.0), &vec![Rule::SimpleRules], true
-                            );
-                    uppers.push(upper.len());
+                    dfvsi.compute_and_set_fast_upper(true);
+                    let upper = dfvsi.upper_bound.expect("was set");
+                    uppers.push(upper);
                     // ... and continue with lossy1 + simple rules 
                     match dfvsi.exhaustive_fine_rules_stats(&priorities[2], &interrupt_receiver) {
                         Ok(rule_stats) => {
                             kernels.push(dfvsi.clone());
                             rules.push(rule_stats);
-                            let upper = dfvsi
-                                .top_down_weight_heuristic(
-                                    &Digraph::cai_weight, (0.2,0.0), &vec![Rule::SimpleRules], true
-                                    );
-                            uppers.push(upper.len());
+                            dfvsi.compute_and_set_fast_upper(true);
+                            let upper = dfvsi.upper_bound.expect("was set");
+                            uppers.push(upper);
                             eprintln!("Done {:?}, {}",n1, p);
                             done_sender.send(1)?;
                             return Ok(Some((kernels, rules, uppers)));

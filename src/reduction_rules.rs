@@ -337,20 +337,30 @@ impl DFVSInstance {
     /// 2. Nodes which are adjacent to at least `self.upper_bound` + 1 - the lower bound of the
     ///    left over graph many node disjunct cycles
     ///    can be added to the solution.
+    /// Added some pruning rules to speed this up.
     pub fn apply_advanced_petal_rules(&mut self) -> bool {
         for node in self.graph.nodes().collect::<Vec<_>>() {
-            let (num_petals, left_over) = self.graph.count_petals_left_over(node);
-            if num_petals == 1 {
-                self.contract_node(node).expect("`node` exists"); 
-                return true
+            let strong_degree = self.graph.strong_degree(node).expect("`node` exists");
+            let min_dir = self.graph.min_direct_degree(node).expect("`node` exists");
+            if strong_degree == 0 {
+                if min_dir <= 5 {
+                    let num_petals = self.graph.count_petals(node);
+                    if num_petals == 1 {
+                        self.contract_node(node).expect("`node` exists"); 
+                        return true
+                    }
+                }
             }
             if let Some(upper) = self.effective_upper_bound() {
-                let lo_ins = DFVSInstance::new(left_over, None, None);
-                let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules, Rule::SCC], false);
-                // compute lower in left over 
-                if upper-lower < num_petals {
-                    self.add_to_solution(node).expect("`node` exists");
-                    return true
+                if strong_degree*2 >= upper {
+                    let (num_petals, left_over) = self.graph.count_petals_left_over(node);
+                    let lo_ins = DFVSInstance::new(left_over, None, None);
+                    let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules, Rule::SCC], false);
+                    // compute lower in left over 
+                    if upper-lower < num_petals {
+                        self.add_to_solution(node).expect("`node` exists");
+                        return true
+                    }
                 }
             }
         }
@@ -367,18 +377,27 @@ impl DFVSInstance {
     /// Panics if `node` is not in `self.graph`.
     pub fn single_advanced_petal_rules(&mut self, node: usize) -> bool {
         assert!(self.graph.has_node(node));
-        let (num_petals, left_over) = self.graph.count_petals_left_over(node);
-        if num_petals == 1 {
-            self.contract_node(node).expect("`node` exists"); 
-            return true
+        let strong_degree = self.graph.strong_degree(node).expect("`node` exists");
+        let min_dir = self.graph.min_direct_degree(node).expect("`node` exists");
+        if strong_degree == 0 {
+            if min_dir <= 5 {
+                let num_petals = self.graph.count_petals(node);
+                if num_petals == 1 {
+                    self.contract_node(node).expect("`node` exists"); 
+                    return true
+                }
+            }
         }
         if let Some(upper) = self.effective_upper_bound() {
-            let lo_ins = DFVSInstance::new(left_over, None, None);
-            let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules, Rule::SCC], false);
-            // compute lower in left over 
-            if upper-lower < num_petals {
-                self.add_to_solution(node).expect("`node` exists");
-                return true
+            if strong_degree*2 >= upper {
+                let (num_petals, left_over) = self.graph.count_petals_left_over(node);
+                let lo_ins = DFVSInstance::new(left_over, None, None);
+                let lower = lo_ins.lower_bound_clique_heuristic(&vec![Rule::SimpleRules, Rule::SCC], false);
+                // compute lower in left over 
+                if upper-lower < num_petals {
+                    self.add_to_solution(node).expect("`node` exists");
+                    return true
+                }
             }
         }
         return false;
