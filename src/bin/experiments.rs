@@ -95,7 +95,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         File::create(format!("{}/sim_rules_lossy1_1lossy2.csv",dest))?,
         File::create(format!("{}/sim_rules_lossy1_1lossy2_4.csv",dest))?
     ];
-    writeln!(&mut out_files[0], "name, n, m, upper_bound, t_heur")?;
+    writeln!(&mut out_files[0], "name, n, m, upper_bound, t_upper, lower_bound, t_lower")?;
     writeln!(&mut out_files[1], "name, nk, mk, sk, uk,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
@@ -147,7 +147,11 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             let mut dfvsi_org = DFVSInstance::new(graph.clone(), None, None);
             let start_time = Instant::now();
             dfvsi_org.compute_and_set_fast_upper(false);
-            (dfvsi_org, name, start_time.elapsed().as_millis())
+            let time_upper = start_time.elapsed().as_millis();
+            let start_time = Instant::now();
+            dfvsi_org.compute_and_set_lower(false);
+            let time_lower = start_time.elapsed().as_millis();
+            (dfvsi_org, name, time_upper, time_lower)
     }));
     }
 
@@ -163,10 +167,14 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             Err(_) => {
                 eprintln!("Some thread paniced");
             },
-            Ok((dfvsi_org, name, time)) => {
+            Ok((dfvsi_org, name, upper_time, lower_time)) => {
                 let upper_init = dfvsi_org.upper_bound.expect("was set");
+                let lower_init = dfvsi_org.lower_bound.expect("was set");
                 // Write general information 
-                writeln!(out_files[0], "{:?}, {}, {}, {}, {}", name, dfvsi_org.graph.num_nodes(), dfvsi_org.graph.num_edges(), upper_init, time)?;
+                writeln!(out_files[0], "{:?}, {}, {}, {}, {}, {}, {}", name, 
+                         dfvsi_org.graph.num_nodes(), 
+                         dfvsi_org.graph.num_edges(), 
+                         upper_init, upper_time, lower_init, lower_time)?;
                 instances.push((dfvsi_org, name));
             },
         }

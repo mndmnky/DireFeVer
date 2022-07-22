@@ -606,8 +606,7 @@ impl DFVSInstance {
 
     /// Returns a upper bound for the given instance.
     pub fn get_fast_upper(&self, skip_initial_rules: bool) -> FxHashSet<usize> {
-        let rule_priority = &vec![Rule::SimpleRules];
-        let mut upper = self.top_down_weight_heuristic_only_local_simple(&Digraph::cai_weight, (0.2,0f64), skip_initial_rules);
+        let upper = self.top_down_weight_heuristic_only_local_simple(&Digraph::cai_weight, (0.2,0f64), skip_initial_rules);
         return upper
     }
 
