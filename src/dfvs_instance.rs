@@ -616,7 +616,7 @@ impl DFVSInstance {
     ///
     /// Returns the best lower bound found.
     pub fn get_some_lower(&self, skip_initial_rules: bool) -> usize {
-        let (lower1, _, _) = self.clique_heuristic(&vec![Rule::SimpleRules, Rule::SCC], skip_initial_rules);
+        let lower1 = self.clique_heuristic_lower(&vec![Rule::SimpleRules], skip_initial_rules);
         return lower1
     }
 

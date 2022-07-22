@@ -218,6 +218,62 @@ impl DFVSInstance {
     /// 3. Removes all nodes in `cliq` from the graph
     /// 4. Adds `cliq`.len() to the upper bound and `cliq`.len() - 1 to the lower bound
     /// 5. Repeat from 1. until no more clique is found
+    /// 6. The solution (that is found by the reduction rules) size is added to the lower_bound.
+    /// 8. Add the lower bound from `.graph.small_disjunct_cycles_heuristic()` to the lower bound 
+    ///
+    /// Returns a lower bound.
+    ///
+    /// # Panics
+    /// Panics if the first rule of `rule_priority` is not `Rule::SimpleRules`.
+    pub fn clique_heuristic_lower(&self, rule_priority: &Vec<Rule>, mut skip_initial_rules: bool) -> usize {
+        let mut clone_instance = self.clone();
+        let mut lower_bound = 0;
+        // Simple rules are needed to check for circles. In addition it makes 
+        // a lot of sense to have them in front of the `priority_list`.
+        assert!(!rule_priority.contains(&Rule::AdvancedPetal));
+        assert_eq!(rule_priority[0], Rule::SimpleRules);
+        loop {
+            // perform reductions:
+            if !skip_initial_rules {
+                clone_instance.exhaustive_reductions(rule_priority);
+            } else {
+                skip_initial_rules = false;
+            }
+            // Greedily find clique `cliq`
+            let cliq = clone_instance.graph.greedy_max_clique();
+            if cliq.len() > 1 {
+                // TODO: remove cliques with higher degree first (especially when `cliq.len() ==
+                // 2`.
+                // Remove `cliq` from graph 
+                clone_instance.graph.remove_nodes(cliq.clone());
+                lower_bound += cliq.len() - 1;
+            } else {
+                // until no more clique is found.
+                break
+            }
+        }
+        // add solution size to both lower and upper.
+        lower_bound += clone_instance.solution.len();
+        // find bounds for left overs
+        let instance = DFVSInstance::new(clone_instance.graph.clone(), None, None);
+        // TODO: adapt to real best upper heuristic.
+        // TODO: could be improved.
+        let mut new_prio = rule_priority.clone();
+        if !rule_priority.contains(&Rule::SCC) {
+            new_prio.push(Rule::SCC);
+        }
+        let add_lower_sol = instance.disjunct_cycle_heuristic(&new_prio, true);
+        lower_bound += add_lower_sol;
+        return lower_bound
+    }
+
+    /// Heuristic that does the following: 
+    /// 1. Apply `rule_priority` exhaustively, or skips it if `skip_initial_rules` is set to
+    ///    `true`.
+    /// 2. Greedily find an inclusion maximal clique `cliq`
+    /// 3. Removes all nodes in `cliq` from the graph
+    /// 4. Adds `cliq`.len() to the upper bound and `cliq`.len() - 1 to the lower bound
+    /// 5. Repeat from 1. until no more clique is found
     /// 6. The solution (that is found by the reduction rules) size is added to both bounds.
     /// 7. Add the upper bound from `.highest_degree_heuristic()` to the upper bound.
     /// 8. Add the lower bound from `.graph.small_disjunct_cycles_heuristic()` to the lower bound 
