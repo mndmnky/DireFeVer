@@ -383,6 +383,7 @@ impl DFVSInstance {
             if min_dir <= 5 {
                 let num_petals = self.graph.count_petals(node);
                 if num_petals == 1 {
+                    eprintln!("contract node, w. min dir deg: {}", min_dir);
                     self.contract_node(node).expect("`node` exists"); 
                     return true
                 }
@@ -395,6 +396,7 @@ impl DFVSInstance {
                 let lower = lo_ins.clique_heuristic_lower(&vec![Rule::SimpleRules, Rule::SCC], false);
                 // compute lower in left over 
                 if upper-lower < num_petals {
+                    eprintln!("add node to sol");
                     self.add_to_solution(node).expect("`node` exists");
                     return true
                 }

@@ -175,12 +175,29 @@ impl DFVSInstance {
                             },
                             _ => (),
                         }
+                        for node in self.graph.nodes() {
+                            if self.graph.min_direct_degree(node) == Some(1) {
+                                eprintln!("node was overlooked");
+                            }
+                        }
                     },
                     Rule::SCC => {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let app = self.apply_advanced_scc_rule();
+                        let tr = rec.try_recv();
+                        match tr {
+                            Err(Disconnected) => {
+                                eprintln!("interrupted since disco");
+                                return Err(ProcessingError::OutOfTime);
+                            },
+                            Ok(_) => {
+                                eprintln!("interrupted since interrupt send");
+                                return Err(ProcessingError::OutOfTime);
+                            },
+                            _ => (),
+                        }
                         rule_stat.add(
                             nodes_before - self.graph.num_nodes() as u64,
                             edges_before - self.graph.num_edges() as i64,
@@ -197,6 +214,7 @@ impl DFVSInstance {
                         let edges: Vec<_> = self.graph.weak_edges().collect();
                         for edge in edges {
                             app = self.single_dome_rule(edge);
+                            if app {break};
                             let tr = rec.try_recv();
                             match tr {
                                 Err(Disconnected) => {
@@ -411,7 +429,7 @@ impl DFVSInstance {
                         let mut app = false;
                         let nodes: Vec<_> = self.graph.nodes().collect();
                         for node in nodes {
-                            app = self.single_advanced_petal_rules(node);
+                            app = self.single_fast_advanced_petal_rules(node);
                             if app {break};
                             let tr = rec.try_recv();
                             match tr {
