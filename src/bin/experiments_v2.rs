@@ -80,6 +80,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let mut out_files = vec![
         File::create(format!("{}/sim_rules_lossy1.csv",dest))?,
         File::create(format!("{}/sim_rules_lossy_allr.csv",dest))?,
+        File::create(format!("{}/sim_rules_lossy_allr_r2.csv",dest))?,
     ];
     writeln!(&mut out_files[0], "name, nk, mk, sk, uk,\
              t_st, n_st, m_st,\
