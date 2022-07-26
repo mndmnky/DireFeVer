@@ -180,6 +180,9 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 ### 1.8.1-progress
 * Fast advanced petal rule
 
+### 1.8.2-progress
+* experiments 2nd version 
+
 ## Todo
 
 ### Next

@@ -429,7 +429,7 @@ impl DFVSInstance {
                         let mut app = false;
                         let nodes: Vec<_> = self.graph.nodes().collect();
                         for node in nodes {
-                            app = self.single_fast_advanced_petal_rules(node);
+                            app = self.single_advanced_petal_rules(node);
                             if app {break};
                             let tr = rec.try_recv();
                             match tr {
