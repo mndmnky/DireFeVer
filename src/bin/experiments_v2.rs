@@ -1,9 +1,10 @@
 //!
 //! This binary is purely meant for experiments.
 //! For each input graph, several output files are created:
-//! * A csv containing statistics of the essential and the lossy1 rule and the resulting kernel.
-//! * A csv containing statistics of the essential, the lossy1 rule and a single application of the
+//! 1. A csv containing statistics of the essential and the lossy1 rule and the resulting kernel.
+//! 2. A csv containing statistics of the essential, the lossy1 rule and a single application of the
 //! lossy2 rule with complete exact rules afterwards, and the resulting kernel.
+//! 3. 2. with one more time lossy1 and all the simple rules.
 
 use std::error;
 use std::time::{Duration,Instant};
@@ -98,6 +99,18 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_domino, n_domino, m_domino,\
              t_ap, n_ap, m_ap,\
              t_1lossy2, n_1lossy2, m_1lossy2, maxoff_1lossy2")?;
+    writeln!(&mut out_files[2], "name, nk, mk, sk, uk,\
+             t_st, n_st, m_st,\
+             t_lossy1, n_lossy1, m_lossy1, maxoff_lossy1,\
+             t_ln, n_ln, m_ln,\
+             t_tn, n_tn, m_tn,\
+             t_dome, n_dome, m_dome,\
+             t_scc, n_scc, m_scc,\
+             t_cliq, n_cliq, m_cliq,\
+             t_core, n_core, m_core,\
+             t_domino, n_domino, m_domino,\
+             t_ap, n_ap, m_ap,\
+             t_1lossy2, n_1lossy2, m_1lossy2, maxoff_1lossy2")?;
 
     // Read graphs
     let mut graphs = Vec::new();
@@ -174,6 +187,31 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             let global2 = dfvsi.apply_global_lossy2_once(2);
             rules.push(vec![global2]);
             match dfvsi.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
+                Ok(rule_stats) => {
+                    kernels.push(dfvsi.clone());
+                    rules.push(rule_stats);
+                },
+                Err(_) => {
+                    eprintln!("Interrupted {:?}",n1);
+                    done_sender.send(1)?;
+                    return Ok(Some((kernels, rules, uppers)));
+                },
+            };
+            // Collect nodes in the solution.
+            // let bonus = dfvsi.solution.len(); // Not currently used.
+            // If `dfvsi` is reduced to zero stop here. 
+            if dfvsi.graph.num_nodes() == 0 {
+                uppers.push(dfvsi.solution.len());
+                eprintln!("Done {:?}",n1);
+                done_sender.send(1)?;
+                return Ok(Some((kernels, rules, uppers)));
+            }
+            // Else compute heuristic ...
+            dfvsi.compute_and_set_fast_upper(true);
+            let upper = dfvsi.upper_bound.expect("was set");
+            uppers.push(upper);
+            // ... and continue with global lossy2 once + all rules 
+            match dfvsi.exhaustive_fine_rules_stats(&priorities[1], &interrupt_receiver) {
                 Ok(rule_stats) => {
                     kernels.push(dfvsi.clone());
                     rules.push(rule_stats);
@@ -280,7 +318,7 @@ fn write_complex_stuff(
     out_files: &mut Vec<File>, rule_set: &Vec<Vec<RuleStats>>) -> Result<(), Box<dyn error::Error>> {
     let mut old_set = None;
     let mut rule_iter = rule_set.iter();
-    for i in 0..2 {
+    for i in 0..3 {
         if left_overs.len() > i {
             left_overs[i].graph.write_graph(File::create(format!("{}/{:?}_k_{}",dest,g_name,i))?)?;
             let mut line = String::new();
@@ -289,7 +327,9 @@ fn write_complex_stuff(
             if old_set.is_none() {
                 old_set = Some(rule_iter.next().expect("`left_overs` still has elements").clone());
             } else {
-                old_set = Some(RuleStats::merge_vecs(&old_set.expect("is some"), rule_iter.next().expect("`left_overs` still has elements"), true));
+                if i == 1 {
+                    old_set = Some(RuleStats::merge_vecs(&old_set.expect("is some"), rule_iter.next().expect("`left_overs` still has elements"), true));
+                }
                 old_set = Some(RuleStats::merge_vecs(&old_set.expect("is some"), rule_iter.next().expect("`left_overs` still has elements"), true));
             }
             let merged_set = old_set.as_ref().expect("expect").clone();
@@ -314,15 +354,13 @@ fn write_complex_stuff(
             writeln!(out_files[i], "{}",line)?;
         } else {
             let mut line = String::new();
-            line.push_str(&format!("{:?}, ", g_name));
+            line.push_str(&format!("{:?}", g_name));
             // file line with aproprate amount of ,
             match i {
-                // 4 * 3 - 1
-                0 => line.push_str(",,,,,,,,,,,,,,,"), //??
-                // 4 * 3 - 1 + 4
-                1 => line.push_str(",,,,,,,,,,,,,,,,,,,"), //??
-                // 4 * 3 - 1 + 4*2
-                2 | 3 => line.push_str(",,,,,,,,,,,,,,,,,,,,,,,"), //??
+                // 5*4
+                0 => line.push_str(",,,,,,,,,,,,,,,,,,,,"), 
+                // 6 + 11*3
+                1 | 2 => line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,"), 
                 _ => (),
             }
             writeln!(out_files[i], "{}",line)?;
