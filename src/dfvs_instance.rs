@@ -110,6 +110,14 @@ impl DFVSInstance {
         false
     }
 
+    // Sets `self.current_best` and `self.upper_bound` back to `None`.
+    // This makes sense after the usage of lossy reduction rules, since they might increase the
+    // solution size.
+    pub fn reset_upper(&mut self) {
+        self.upper_bound = None;
+        self.current_best = None;
+    }
+
     /// Sets `set` to `self.current_best` and `self.upper_bound` to `set.len()` if `self.upper_bound` is 
     /// greater or equal to `set.len()` or `self.upper_bound` is not yet set. 
     /// Does nothing otherwise. 

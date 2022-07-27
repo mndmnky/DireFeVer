@@ -123,6 +123,9 @@ impl DFVSInstance {
             start_time.elapsed().as_millis(),
             amount
         );
+        if amount > 0 {
+            self.reset_upper();
+        }
         rs
     }
 
@@ -174,11 +177,6 @@ impl DFVSInstance {
                                 return Err(ProcessingError::OutOfTime);
                             },
                             _ => (),
-                        }
-                        for node in self.graph.nodes() {
-                            if self.graph.min_direct_degree(node) == Some(1) {
-                                eprintln!("node was overlooked");
-                            }
                         }
                     },
                     Rule::SCC => {
@@ -394,7 +392,9 @@ impl DFVSInstance {
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
                         let mut app = false;
-                        self.compute_and_set_fast_upper(true);
+                        if self.upper_bound.is_none() {
+                            self.compute_and_set_fast_upper(true);
+                        }
                         let nodes: Vec<_> = self.graph.nodes().collect();
                         for node in nodes {
                             app = self.single_petal_rules(node);
@@ -425,11 +425,47 @@ impl DFVSInstance {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
-                        self.compute_and_set_fast_upper(true);
+                        if self.upper_bound.is_none() {
+                            self.compute_and_set_fast_upper(true);
+                        }
                         let mut app = false;
                         let nodes: Vec<_> = self.graph.nodes().collect();
                         for node in nodes {
                             app = self.single_advanced_petal_rules(node);
+                            if app {break};
+                            let tr = rec.try_recv();
+                            match tr {
+                                Err(Disconnected) => {
+                                    eprintln!("interrupted since disco");
+                                    return Err(ProcessingError::OutOfTime);
+                                },
+                                Ok(_) => {
+                                    eprintln!("interrupted since interrupt send");
+                                    return Err(ProcessingError::OutOfTime);
+                                },
+                                _ => (),
+                            }
+                        }
+                        rule_stat.add(
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
+                            start_time.elapsed().as_millis()
+                        );
+                        if app {
+                            continue 'outer
+                        }
+                    },
+                    Rule::QuickAdvancedPetal => {
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
+                        let start_time = Instant::now();
+                        if self.upper_bound.is_none() {
+                            self.compute_and_set_fast_upper(true);
+                        }
+                        let mut app = false;
+                        let nodes: Vec<_> = self.graph.nodes().collect();
+                        for node in nodes {
+                            app = self.single_fast_advanced_petal_rules(node);
                             if app {break};
                             let tr = rec.try_recv();
                             match tr {
@@ -464,34 +500,7 @@ impl DFVSInstance {
                             start_time.elapsed().as_millis()
                         );
                         if app {
-                            continue 'outer
-                        }
-                    },
-                    Rule::SimpleLossy2(q) => {
-                        let nodes_before = self.graph.num_nodes() as u64;
-                        let edges_before = self.graph.num_edges() as i64;
-                        let start_time = Instant::now();
-                        let app = self.apply_simple_lossy2_rules(q);
-                        rule_stat.add(
-                            nodes_before - self.graph.num_nodes() as u64,
-                            edges_before - self.graph.num_edges() as i64,
-                            start_time.elapsed().as_millis()
-                        );
-                        if app {
-                            continue 'outer
-                        }
-                    },
-                    Rule::AdvancedLossy2(q) => {
-                        let nodes_before = self.graph.num_nodes() as u64;
-                        let edges_before = self.graph.num_edges() as i64;
-                        let start_time = Instant::now();
-                        let app = self.apply_advanced_lossy2_rules(q);
-                        rule_stat.add(
-                            nodes_before - self.graph.num_nodes() as u64,
-                            edges_before - self.graph.num_edges() as i64,
-                            start_time.elapsed().as_millis()
-                        );
-                        if app {
+                            self.reset_upper();
                             continue 'outer
                         }
                     },
@@ -655,7 +664,9 @@ impl DFVSInstance {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
-                        self.compute_and_set_fast_upper(true);
+                        if self.upper_bound.is_none() {
+                            self.compute_and_set_fast_upper(true);
+                        }
                         let app = self.apply_petal_rules();
                         rule_stat.add(
                             nodes_before - self.graph.num_nodes() as u64,
@@ -670,8 +681,27 @@ impl DFVSInstance {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
-                        self.compute_and_set_fast_upper(true);
+                        if self.upper_bound.is_none() {
+                            self.compute_and_set_fast_upper(true);
+                        }
                         let app = self.apply_advanced_petal_rules();
+                        rule_stat.add(
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
+                            start_time.elapsed().as_millis()
+                        );
+                        if app {
+                            continue 'outer
+                        }
+                    },
+                    Rule::QuickAdvancedPetal => {
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
+                        let start_time = Instant::now();
+                        if self.upper_bound.is_none() {
+                            self.compute_and_set_fast_upper(true);
+                        }
+                        let app = self.apply_fast_advanced_petal_rules();
                         rule_stat.add(
                             nodes_before - self.graph.num_nodes() as u64,
                             edges_before - self.graph.num_edges() as i64,
@@ -692,34 +722,7 @@ impl DFVSInstance {
                             start_time.elapsed().as_millis()
                         );
                         if app {
-                            continue 'outer
-                        }
-                    },
-                    Rule::SimpleLossy2(q) => {
-                        let nodes_before = self.graph.num_nodes() as u64;
-                        let edges_before = self.graph.num_edges() as i64;
-                        let start_time = Instant::now();
-                        let app = self.apply_simple_lossy2_rules(q);
-                        rule_stat.add(
-                            nodes_before - self.graph.num_nodes() as u64,
-                            edges_before - self.graph.num_edges() as i64,
-                            start_time.elapsed().as_millis()
-                        );
-                        if app {
-                            continue 'outer
-                        }
-                    },
-                    Rule::AdvancedLossy2(q) => {
-                        let nodes_before = self.graph.num_nodes() as u64;
-                        let edges_before = self.graph.num_edges() as i64;
-                        let start_time = Instant::now();
-                        let app = self.apply_advanced_lossy2_rules(q);
-                        rule_stat.add(
-                            nodes_before - self.graph.num_nodes() as u64,
-                            edges_before - self.graph.num_edges() as i64,
-                            start_time.elapsed().as_millis()
-                        );
-                        if app {
+                            self.reset_upper();
                             continue 'outer
                         }
                     },

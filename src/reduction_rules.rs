@@ -15,6 +15,7 @@ pub enum Rule {
     Dominion,
     Petal,
     AdvancedPetal,
+    QuickAdvancedPetal,
     Lossy(usize),
     SimpleLossy2(usize),
     AdvancedLossy2(usize),
@@ -1156,29 +1157,32 @@ impl DFVSInstance {
                         }
                     },
                     Rule::Petal => {
-                        self.compute_and_set_fast_upper(true);
+                        if self.upper_bound.is_none() {
+                            self.compute_and_set_fast_upper(true);
+                        }
                         if self.apply_petal_rules() {
                             continue 'outer
                         }
                     },
                     Rule::AdvancedPetal => {
-                        self.compute_and_set_fast_upper(true);
+                        if self.upper_bound.is_none() {
+                            self.compute_and_set_fast_upper(true);
+                        }
                         if self.apply_advanced_petal_rules() {
+                            continue 'outer
+                        }
+                    },
+                    Rule::QuickAdvancedPetal => {
+                        if self.upper_bound.is_none() {
+                            self.compute_and_set_fast_upper(true);
+                        }
+                        if self.apply_fast_advanced_petal_rules() {
                             continue 'outer
                         }
                     },
                     Rule::Lossy(q) => {
                         if self.apply_lossy_rules(*q) {
-                            continue 'outer
-                        }
-                    },
-                    Rule::SimpleLossy2(q) => {
-                        if self.apply_simple_lossy2_rules(*q) {
-                            continue 'outer
-                        }
-                    },
-                    Rule::AdvancedLossy2(q) => {
-                        if self.apply_advanced_lossy2_rules(*q) {
+                            self.reset_upper();
                             continue 'outer
                         }
                     },
