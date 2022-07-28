@@ -1,3 +1,11 @@
+//! 
+//! This file provides structs and fuctions to gather statistics for different functionalities of
+//! this library. 
+//! Currently this file includes:
+//! * A `RuleStats` struct to record the amount of reduced nodes, reduced edges, the amount of
+//! successfull applications and the total running time.
+//! * Two functions that exhaustivly run a priority list of rules and record their statistics.
+
 use crate::dfvs_instance::DFVSInstance;
 use std::sync::mpsc::Receiver;
 use std::time::Instant;
@@ -26,6 +34,8 @@ impl RuleStats {
         }
     }
 
+    /// Adds `n` reduced nodes, `m` reduced edges and `time` ms to the running time of `self`.
+    /// If either `n` or `m` is greater than 0, also adds a successfull application.
     pub fn add(&mut self, n: u64, m: i64, time: u128) {
         self.reduced_nodes += n;
         self.reduced_edges += m;
@@ -35,6 +45,7 @@ impl RuleStats {
         }
     }
 
+    /// Does the same as `add()` but also adds a fixed `amount` to the successfull applications.
     pub fn add_mult(&mut self, n: u64, m: i64, time: u128, amount: usize) {
         self.reduced_nodes += n;
         self.reduced_edges += m;
@@ -63,7 +74,6 @@ impl RuleStats {
         }
     }
 
-    /// TODO first find out what we load into this.
     /// Adds the values of each element of `other` to the matching elements of `this`. 
     /// This function won't work properly if `this` and `other` dont hold matching elements in the
     /// same order.

@@ -188,8 +188,6 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 
 ### Next
 * Speed-up rules
-* TEST `single versions`
-* Test other lossy rules (test global rule)
 * Twin-rule can merge nodes instead. Would take some work though.
 
 ### Some other things
@@ -200,6 +198,7 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Poly kernel rules.
 
 # Still needed?
+* TEST `single versions`
 * Check if BST can be bounded further (current solution + current best lower bound > best solution -> return best solution).
 * Polish branch and reduce algorithm (can be contracted).
 
