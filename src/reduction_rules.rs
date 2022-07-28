@@ -16,9 +16,7 @@ pub enum Rule {
     Petal,
     AdvancedPetal,
     QuickAdvancedPetal,
-    Lossy(usize),
-    SimpleLossy2(usize),
-    AdvancedLossy2(usize),
+    Lossy1(usize),
     GlobalLossy2(usize),
 }
 
@@ -1180,7 +1178,7 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
-                    Rule::Lossy(q) => {
+                    Rule::Lossy1(q) => {
                         if self.apply_lossy_rules(*q) {
                             self.reset_upper();
                             continue 'outer
@@ -1243,7 +1241,6 @@ mod tests {
         let instance_check = DFVSInstance::new(g_check, None, None);
         assert_eq!(instance.graph, instance_check.graph);
     }
-
 
     // #[test]
     // fn clique_rule_test() {
@@ -1603,6 +1600,30 @@ mod tests {
         clone2.apply_simple_rules();
         assert_eq!(clone2.graph.num_nodes(), 0);
         assert_eq!(clone2.solution.len(), 6+1);
+    }
+
+    #[test]
+    fn global_lossy2_test() {
+        let gr = Cursor::new("20 156 0\n\
+                             2 3 4 6 7 8 9 10 11 13 14 15 16 17 18 19 20\n\
+                             1 3 4 6 7 8 9 10 11 13 14 15 16 17 18 19 20\n\
+                             1 2 4 6 7 8 9 10 11 13 14 15 16 17 18 19 20\n\
+                             1 2 3 6 7 8 9 10 11 13 14 15 16 17 18 19 20\n\
+                             6 7 8\n1 2 3 4 9 10\n1 2 3 4 11\n1 2 3 4 11\n1 2 3 4 5\n\
+                             1 2 3 4 5\n1 2 3 4 5\n13 14 18\n1 2 3 4 15\n\
+                             1 2 3 4 15\n1 2 3 4 16 17\n1 2 3 4 12\n\
+                             1 2 3 4 12\n1 2 3 4 20\n1 2 3 4 12\n\
+                             1 2 3 4 19");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let mut instance = DFVSInstance::new(g, None, None);
+        let (should3 ,left) = instance.graph.count_petals_left_over(4);
+        assert_eq!(should3, 3);
+        let (should3, left) = left.count_petals_left_over(11);
+        assert_eq!(should3, 3);
+        assert_eq!(left.num_nodes(), 2);
+        assert_eq!(instance.apply_lossy2_global_rule(3), 2);
     }
 
 }

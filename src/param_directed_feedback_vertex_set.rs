@@ -1,6 +1,6 @@
-use crate::digraph::{Digraph};
+use crate::digraph::Digraph;
 use crate::param_directed_feedback_arc_set::ParamDirectedFeedbackArcSetInstance;
-use fxhash::{FxHashSet};
+use fxhash::FxHashSet;
 use std::collections::HashSet;
 
 #[derive(Debug, Eq, PartialEq, Clone)]

@@ -1,9 +1,9 @@
-use crate::digraph::{Digraph};
+use crate::digraph::Digraph;
 use crate::param_directed_feedback_vertex_set::ParamDirectedFeedbackVertexSetInstance;
 use crate::skew_edge_multicut::SkewEdgeMulticutInstance;
 use std::convert::From;
 use std::collections::HashSet;
-use fxhash::{FxHashSet};
+use fxhash::FxHashSet;
 use itertools::Itertools;
 
 #[derive(Debug, Eq, PartialEq, Clone)]

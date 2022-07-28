@@ -14,10 +14,6 @@ name = "exact"
 path = "src/bin/exact.rs"
 
 [[bin]]
-name = "kernel"
-path = "src/bin/kernel.rs"
-
-[[bin]]
 name = "experiments"
 path = "src/bin/experiments.rs"
 

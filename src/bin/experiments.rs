@@ -1,19 +1,16 @@
 //!
-//! This binary is purely meant for experiments.
+//! This binary is only meant to run experiments and record their results.
 //! For each input graph, several output files are created:
-//! * A csv with general statistics of the graph. Such as number of nodes, number of edges, some
+//! 1. A csv with general statistics of the graph. Such as number of nodes, number of edges, some
 //! upper bound and some lower bound.
-//! * A csv containing statistics of the essential rules and the resulting kernel.
-//! * A csv containing statistics of the essential and the lossy1 rule and the resulting kernel.
-//! * A csv containing statistics of the essential, the lossy1 rule and a single application of the
-//! lossy2 rule without the lossy1 rule afterwards, and the resulting kernel.
-//! * A csv containing statistics of the essential, the lossy1 rule and a single application of the
-//! lossy2 rule, and the resulting kernel.
-//! * A csv containing statistics of the essential, the lossy1 rule, a single application of the
-//! lossy2 rule and a final heuristic on the remaining kernel which only removes as many nodes as
-//! the essential rules added into the solution in the first place, and the resulting kernel.
+//! 2. Two csv's containing statistics of most of the exact rules implemented and the resulting kernels. 
+//! One with the `AdvancedPetal`-Rule and one with the `QuickAdvancedPetal`-Rule.
+//! 3. Two csv's containing statistics of the essential and the lossy1 rule and the resulting kernel. Again with the two versions of the petal rules.
+//! 4. Two csv's containing statistics of the essential, the lossy1 rule and a single application 
+//! of the lossy2 rule. After the first (and only) application of the `GlobalLossy2`-Rule 
+//! most of the exact rules are exhaustivly applied, and the resulting kernel.
+//! 5. Two csv's containing all the rules of 4. with the rules of 3. afterwards.
 //!
-//! TODO: repeat with complete rules
 
 use std::error;
 use std::time::{Duration,Instant};
@@ -30,6 +27,7 @@ use std::fmt::Display;
 
 use dfvs_solver::{digraph::Digraph,  dfvs_instance::DFVSInstance, reduction_rules::Rule, stats::RuleStats};
 
+/// Custom Error for the threads.
 #[derive(Debug)]
 enum ThreadErr {
     SendError(SendError<i8>),
@@ -83,8 +81,8 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let priorities_org = vec![
         vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal],
         vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::QuickAdvancedPetal],
-        vec![Rule::SimpleRules, Rule::Lossy(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
-        vec![Rule::SimpleRules, Rule::Lossy(1), Rule::Dome, Rule::SCC, Rule::QuickAdvancedPetal],
+        vec![Rule::SimpleRules, Rule::Lossy1(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
+        vec![Rule::SimpleRules, Rule::Lossy1(1), Rule::Dome, Rule::SCC, Rule::QuickAdvancedPetal],
     ];
 
     // Initialize output files
@@ -466,7 +464,6 @@ fn write_simple_stuff(
 fn write_simple_empty(
     g_name: &OsString, out_file: &mut File) -> Result<(), Box<dyn error::Error>> {
     let mut line = String::new();
-    // 9 * 3 - 1
     line.push_str(&format!("{:?},,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,", g_name));
     writeln!(out_file, "{}",line)?;
     Ok(())
@@ -479,7 +476,7 @@ fn write_complex_stuff(
     let mut rule_iter = rule_set.iter();
     for i in 0..3 {
         if left_overs.len() > i {
-            left_overs[i].graph.write_graph(File::create(format!("{}/{:?}_k_{}",dest,g_name,go - 1 + i * 2))?)?;
+            left_overs[i].graph.write_graph(File::create(format!("{}/{:?}_k_{}",dest,g_name,go + i * 2))?)?;
             let mut line = String::new();
             line.push_str(&format!("{:?}, {}, {}, {}, {}, ", g_name, left_overs[i].graph.num_nodes(), left_overs[i].graph.num_edges(), left_overs[i].solution.len(), heurs[i]));
             // merge rule sets 
@@ -495,14 +492,14 @@ fn write_complex_stuff(
             for r in 0..merged_set.len() {
                 let rule = &merged_set[r];
                 if r < merged_set.len()-1 {
-                    if rule.rule == Rule::Lossy(1) || 
+                    if rule.rule == Rule::Lossy1(1) || 
                         rule.rule == Rule::GlobalLossy2(2) {
                         line.push_str(&format!("{}, {}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                     } else {
                         line.push_str(&format!("{}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
                     }
                 } else {
-                    if rule.rule == Rule::Lossy(1) || 
+                    if rule.rule == Rule::Lossy1(1) || 
                         rule.rule == Rule::GlobalLossy2(2) {
                         line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                     } else {
@@ -510,19 +507,17 @@ fn write_complex_stuff(
                     }
                 }
             }
-            writeln!(out_files[go + i * 2], "{}",line)?;
+            writeln!(out_files[go + 1 + i * 2], "{}",line)?;
         } else {
             let mut line = String::new();
             line.push_str(&format!("{:?} ", g_name));
             // file line with aproprate amount of ,
             match i {
-                // 5 * 4
-                0 => line.push_str(",,,,,,,,,,,,,,,"), //??
-                // 13 * 3
-                1 | 2=> line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,"), //??
+                0 => line.push_str(",,,,,,,,,,,,,,,"), 
+                1 | 2=> line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,"), 
                 _ => (),
             }
-            writeln!(out_files[go + i * 2], "{}",line)?;
+            writeln!(out_files[go + 1 + i * 2], "{}",line)?;
         }
     }
     Ok(())

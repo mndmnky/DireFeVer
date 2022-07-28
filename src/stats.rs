@@ -489,7 +489,7 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
-                    Rule::Lossy(q) => {
+                    Rule::Lossy1(q) => {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
@@ -711,7 +711,7 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
-                    Rule::Lossy(q) => {
+                    Rule::Lossy1(q) => {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
@@ -735,4 +735,3 @@ impl DFVSInstance {
     }
 
 }
-

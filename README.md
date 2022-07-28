@@ -38,8 +38,8 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 
 * Lossy kernelization rules:
 	* One, that adds all nodes within strong cliques of size 1+`quality`. The size of an optimal solution of the resulting kernel can become at worst 1 + 1/`quality` times as large.
-	* Second, which contracts nodes adjacent to at most `quality` petals. Each application of this rule can increase the solution by `quality`-1. If the rule is applied only once, on only cycle disjunct nodes, the size of an optimal solution of the resulting kernel can become at worst `quality` times as large. If other lossy rules follow this, however, the resulting solution can become `quality` time the approximation factor of the other rules as large as an optimal solution.
-	This rule can be simplified by using nodes with a maximal incoming- or outgoing degree of `quality`. But this might miss some valid nodes.
+	* A second one, which contracts nodes adjacent to at most `quality` petals. Each application of this rule can increase the solution by `quality`-1. If the rule is applied only once, on only cycle disjunct nodes, the size of an optimal solution of the resulting kernel can become at worst `quality` times as large. If other lossy rules follow this, however, the resulting solution can become `quality` times the approximation factor of the other rules as large as an optimal solution. This rule can be simplified by using nodes with a maximal incoming- or outgoing degree of `quality`. But this might miss some valid nodes.
+	* These rules reset the current upper bound and current best solution.
 
 ### Heuristics
 * Lower bound heuristics:
@@ -173,15 +173,16 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Added `experiments` bin with fixed experiments 
 * Added `GlobalLossy2` rule
 
-### 1.8.0-progress
+### 1.8.0
 * Local simple rules
 * Fast heuristic now actually fast. (Hopefully)
 
-### 1.8.1-progress
-* Fast advanced petal rule
+### 1.8.1
+* Fast advanced petal rule.
 
-### 1.8.2-progress
-* experiments 2nd version 
+### 1.8.2
+* Different binaries for experiments.
+* Some clean-up and tests.
 
 ## Todo
 
@@ -189,17 +190,18 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Speed-up rules
 * TEST `single versions`
 * Test other lossy rules (test global rule)
+* Twin-rule can merge nodes instead. Would take some work though.
 
 ### Some other things
-* SCC in disjunct cycle heuristic can be simple. Check if simple is much faster than advanced
-* Twin nodes can also be merged if no edges are between their neighbors
-
-### Some time
-* Fixed rule priority lists.
-* Check if BST can be bounded further (current solution + current best lower bound > best solution -> return best solution).
-* Polish branch and reduce algorithm (can be contracted).
+* SCC in disjunct cycle heuristic can be simple. Check if simple is much faster than advanced.
+* Twin nodes can also be merged if no edges are between their neighbors.
+* Constant rule priority lists.
 * UDFVS solution as heuristic.
 * Poly kernel rules.
+
+# Still needed?
+* Check if BST can be bounded further (current solution + current best lower bound > best solution -> return best solution).
+* Polish branch and reduce algorithm (can be contracted).
 
 [^fn1]: Chen, Jianer, et al. "A fixed-parameter algorithm for the directed feedback vertex set problem." Proceedings of the fortieth annual ACM symposium on Theory of computing. 2008.
 
