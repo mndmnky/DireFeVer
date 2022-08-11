@@ -514,6 +514,21 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
+                    Rule::LossyCycle(q) => {
+                        let nodes_before = self.graph.num_nodes() as u64;
+                        let edges_before = self.graph.num_edges() as i64;
+                        let start_time = Instant::now();
+                        let app = self.apply_lossy_cycle_rule(q);
+                        rule_stat.add(
+                            nodes_before - self.graph.num_nodes() as u64,
+                            edges_before - self.graph.num_edges() as i64,
+                            start_time.elapsed().as_millis()
+                        );
+                        if app {
+                            self.reset_upper();
+                            continue 'outer
+                        }
+                    },
                     _ => panic!(),
                 }
             }
