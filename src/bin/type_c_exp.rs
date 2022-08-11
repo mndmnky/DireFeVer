@@ -242,7 +242,7 @@ fn write_complex_stuff(
         line.push_str(&format!("{:?}, {}, {}, {}, {}, ", g_name, left_overs[0].graph.num_nodes(), left_overs[0].graph.num_edges(), left_overs[0].solution.len(), heurs[0]));
         for r in 0..rule_set[0].len() {
             let rule = &rule_set[0][r];
-            if r < rule_set.len()-1 {
+            if r < rule_set[0].len()-1 {
                 if rule.rule == Rule::LossyClique(1) || 
                     rule.rule == Rule::LossyCycle(3) {
                     line.push_str(&format!("{}, {}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
