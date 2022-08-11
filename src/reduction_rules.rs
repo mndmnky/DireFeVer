@@ -16,8 +16,17 @@ pub enum Rule {
     Petal,
     AdvancedPetal,
     QuickAdvancedPetal,
+    /// Parameter specifies the minimal size of the cliques minus 1.
     LossyClique(usize),
+    /// Parameter specifies the maximal size of the cycles.
+    LossyCycle(usize),
+    LossyCut,
+    /// Parameter specifies the amount of times each node can be in one of the cycles.
+    LossyLower(usize),
+    /// Parameter specifies the maximal amount of incident node disjunct cycles of each contracted
+    /// node.
     GlobalLossyContraction(usize),
+    LossyMerge,
 }
 
 impl DFVSInstance {
@@ -1283,6 +1292,12 @@ impl DFVSInstance {
                     },
                     Rule::LossyClique(q) => {
                         if self.apply_lossy_clique_rules(*q) {
+                            self.reset_upper();
+                            continue 'outer
+                        }
+                    },
+                    Rule::LossyCycle(q) => {
+                        if self.apply_lossy_cycle_rule(*q) {
                             self.reset_upper();
                             continue 'outer
                         }

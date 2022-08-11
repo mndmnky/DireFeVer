@@ -39,7 +39,8 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Lossy kernelization rules:
 	* One, that adds all nodes within strong cliques of size 1+`quality`. The size of an optimal solution of the resulting kernel can become at worst 1 + 1/`quality` times as large.
 	* A second one, which contracts nodes adjacent to at most `quality` petals. Each application of this rule can increase the solution by `quality`-1. If the rule is applied only once, on only cycle disjunct nodes, the size of an optimal solution of the resulting kernel can become at worst `quality` times as large. If other lossy rules follow this, however, the resulting solution can become `quality` times the approximation factor of the other rules as large as an optimal solution. This rule can be simplified by using nodes with a maximal incoming- or outgoing degree of `quality`. But this might miss some valid nodes.
-	* These rules reset the current upper bound and current best solution.
+	* TODO describe the other lossy rules!
+	* These rules reset the current upper bound and current best solution. Or they should!
 
 ### Heuristics
 * Lower bound heuristics:
