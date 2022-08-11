@@ -924,10 +924,8 @@ impl Digraph {
                 if trgs.contains(&next) {
                     num_petals += 1;
                     // backtrack
-                    eprintln!("Found petal");
                     let mut cur = next;
                     let mut pre = pref;
-                    eprintln!("Edge: {} {}", cur, pre);
                     taken.insert(cur, pre);
                     let mut before = None;
                     while pre != *src {
@@ -944,7 +942,6 @@ impl Digraph {
                                 taken.insert(p1, p2);
                                 before = None;
                             }
-                            eprintln!("Edge: {} {}", cur, pre);
                             taken.insert(cur, pre);
                         }
                     }
