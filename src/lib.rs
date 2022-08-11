@@ -5,7 +5,7 @@ pub mod param_directed_feedback_vertex_set;
 pub mod cust_errors;
 pub mod dfvs_instance;
 pub mod branch_reduce;
-pub mod cycle_find;
+pub mod structure_find;
 pub mod heuristics;
 pub mod other_ds;
 pub mod reduction_rules;

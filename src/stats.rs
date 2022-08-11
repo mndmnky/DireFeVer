@@ -122,11 +122,11 @@ impl DFVSInstance {
     /// Applies the global lossy2 rule once on the instance and records the running time and the
     /// kill count.
     pub fn apply_global_lossy2_once(&mut self, param: usize) -> RuleStats {
-        let mut rs = RuleStats::new(Rule::GlobalLossy2(param));
+        let mut rs = RuleStats::new(Rule::GlobalLossyContraction(param));
         let nodes_before: u64 = self.graph.num_nodes() as u64;
         let edges_before: i64 = self.graph.num_edges() as i64;
         let start_time = Instant::now();
-        let amount = self.apply_lossy2_global_rule(param);
+        let amount = self.apply_lossy_contraction_global_rule(param);
         rs.add_mult(
             nodes_before - self.graph.num_nodes() as u64,
             edges_before - self.graph.num_edges() as i64,
@@ -499,11 +499,11 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
-                    Rule::Lossy1(q) => {
+                    Rule::LossyClique(q) => {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
-                        let app = self.apply_lossy_rules(q);
+                        let app = self.apply_lossy_clique_rules(q);
                         rule_stat.add(
                             nodes_before - self.graph.num_nodes() as u64,
                             edges_before - self.graph.num_edges() as i64,
@@ -721,11 +721,11 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
-                    Rule::Lossy1(q) => {
+                    Rule::LossyClique(q) => {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
-                        let app = self.apply_lossy_rules(q);
+                        let app = self.apply_lossy_clique_rules(q);
                         rule_stat.add(
                             nodes_before - self.graph.num_nodes() as u64,
                             edges_before - self.graph.num_edges() as i64,

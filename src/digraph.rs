@@ -6,14 +6,14 @@ use std::io::prelude::*;
 use std::io;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::cmp::min;
-use crate::cust_errors::ImportError;
+use crate::cust_errors::{ImportError, ProcessingError};
 use crate::other_ds::NodeSet;
 use fxhash::{FxHashMap, FxHashSet};
 
 
 /// Helper marker for the iterative approach to find all strongly connected components.
 #[derive(Debug, Clone, Eq, PartialEq)]
-enum Im {
+pub enum Im {
     Itm(usize),
     Marker(usize),
 }
@@ -1040,10 +1040,50 @@ impl Digraph {
         num_petals
     }
 
+    /// Finds a set of n nodes, such that their removal would split the graph into at least n+1
+    /// strongly connected components.
+    pub fn find_split_set(&self) -> FxHashSet<usize> {
+        // get all sccs 
+        let subs = self.split_into_connected_components_alt();
+        let mut cut_vertices: FxHashSet<usize> = FxHashSet::default();
+        for mut sub in subs {
+            if let Some(cut_vs) = sub.split_scc_recursively() {
+                cut_vertices.extend(cut_vs.into_iter());
+            }
+        }
+        return cut_vertices;
+    }
+
 }
 
 // Dynamic operations.
 impl Digraph {
+
+    /// Looks for a node that splits `self` into two or more strongly connected components and
+    /// repeats recursively until no more node can be found. Returns the set of cut nodes, or
+    /// `None` if none could have been found.
+    fn split_scc_recursively(&mut self) -> Option<FxHashSet<usize>> {
+        let mut nodes: Vec<usize> = self.nodes().collect();
+        nodes.sort_unstable_by_key(|n| self.degree(*n));
+        while !nodes.is_empty() {
+            let tn = nodes.pop().expect("`nodes` is not empty");
+            let mut clone = self.clone();
+            clone.remove_node(tn);
+            if let Some(sccs) = clone.reduce_to_sccs() {
+                let mut cut_vertices: FxHashSet<usize> = vec![tn].into_iter().collect();
+                if sccs.len() > 1 {
+                    let subs = clone.split_into_connected_components_alt();
+                    for mut sub in subs {
+                        if let Some(cut_vs) = sub.split_scc_recursively(){
+                            cut_vertices.extend(cut_vs.into_iter());
+                        }
+                    }
+                    return Some(cut_vertices);
+                }
+            }
+        }
+        None
+    }
 
     /// Removes the node `node` and all adjacent edges from the graph.
     /// Returns the a tuple of incoming and outgoing neighbors if the node was removed
@@ -1348,6 +1388,32 @@ impl Digraph {
         self.in_list[node] = None;
         self.out_list[node] = None;
         Some(((ins, outs),(in_doubles, out_doubles), betweens))
+    }
+
+    /// Merges a list of nodes into another node. Ignores loops.
+    /// Returns the lists of old incoming and old outgoing neighbors. 
+    /// Throws an error if any of the given nodes are not in `self`.
+    pub fn big_merge(&mut self, into: usize, from: Vec<usize>) -> Result<(Vec<FxHashSet<usize>>, Vec<FxHashSet<usize>>), ProcessingError> {
+        let mut all_outs = Vec::new();
+        let mut all_ins = Vec::new();
+        if let Some(ins) = self.in_neighbors(into) {
+            all_ins.push(ins.clone());
+            all_outs.push(self.out_neighbors(into).as_ref().expect("into exists").clone());
+        } else {
+            return Err(ProcessingError::GraphError("Some node could not be removed.".to_owned()));
+        }
+        for f in from {
+            if let Some((ins, outs)) = self.remove_node(f) {
+                self.add_edges(ins.iter().map(|inc| (*inc, into)));
+                self.add_edges(outs.iter().map(|outg| (into, *outg)));
+                all_ins.push(ins);
+                all_outs.push(outs);
+            } else {
+                return Err(ProcessingError::GraphError("Some node could not be removed.".to_owned()));
+            }
+        }
+        self.remove_edge(&(into, into));
+        Ok((all_ins, all_outs))
     }
 
     /// Contracts `node` adding edges between the incoming and the outgoing neighbors of `node`. 
@@ -1936,6 +2002,7 @@ impl Digraph {
         }
         None
     }
+
 }
 
 #[cfg(test)]
@@ -2133,6 +2200,18 @@ mod tests {
         assert!(!g.is_weak_edge((1,0)));
         assert!(!g.is_weak_edge((1,2)));
         assert!(!g.is_weak_edge((2,3)));
+    }
+
+    #[test]
+    fn find_split_set_test() {
+        let gr = Cursor::new("14 22 0\n3 8\n1\n2 4\n2 6\n4 6\n\
+                             7\n5\n9\n10 11\n8\n10 13\n11 13\n\
+                             14\n7 12\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let split_set = g.find_split_set();
+        assert_eq!(split_set.len(),2);
     }
 
 }

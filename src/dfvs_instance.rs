@@ -10,7 +10,6 @@ use crate::cust_errors::{ImportError, ProcessingError};
 use std::collections::HashSet;
 use std::io::prelude::*;
 use std::io;
-use std::cmp::max;
 
 /// All possible reductions that can be recorded.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -25,6 +24,9 @@ enum Reduction {
     /// and out neighbors both nodes have in common and the edges between the first and second node.
     CompleteMerge(usize, usize, (FxHashSet<usize>, FxHashSet<usize>), 
                   (FxHashSet<usize>, FxHashSet<usize>), HashSet<(usize, usize)>), 
+    /// Merges all nodes in the first vector into the fist node. Holds all old incomming, and all
+    /// old outgoing neighbors.
+    BigMerge(usize, Vec<usize>, Vec<FxHashSet<usize>>, Vec<FxHashSet<usize>>),
     /// Contracts node. Also holds the incoming neigbors, the outgoing neigbors and the introduced 
     /// double edges.
     Contract(usize, FxHashSet<usize>, FxHashSet<usize>, HashSet<(usize, usize)>), 
@@ -45,9 +47,19 @@ pub struct DFVSInstance {
     pub lower_bound: Option<usize>,
     pub current_best: Option<FxHashSet<usize>>,
     pub merge_nodes: Vec<(usize, (usize, usize))>,
+    // Merges multiple nodes into one. If the remaining node is in the solution, so are the other,
+    // and vice versa.
+    pub lossy_merge_nodes: Vec<(usize, Vec<usize>)>,
+    merge_type: Vec<MT>,
     /// Keeps the indcies of the first reductions in the different reduction steps.
     register: Vec<usize>,
     reductions: Vec<Reduction>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+enum MT {
+    Lossy,
+    Normal,
 }
 
 impl DFVSInstance {
@@ -66,6 +78,8 @@ impl DFVSInstance {
             lower_bound,
             current_best: None,
             merge_nodes: Vec::new(),
+            lossy_merge_nodes: Vec::new(),
+            merge_type: Vec::new(),
             register: vec![0],
             reductions: Vec::new(),
         }
@@ -237,8 +251,20 @@ impl DFVSInstance {
                     self.graph.remove_edges(remove_from_ins.map(|trg| (into, *trg)));
                     let placeholder = self.merge_nodes.len() + self.graph.num_reserved_nodes() - 1;
                     self.merge_nodes.pop();
+                    self.merge_type.pop();
                     self.solution.remove(&placeholder);
                 }
+                // TODO: not yet tested:
+                Reduction::BigMerge(into, mut from, mut ins, mut outs) => {
+                    // TODO: could be made more efficient.
+                    for i in 1..ins.len() {
+                        self.graph.reinsert_node(from.pop().expect("not empty"), ins.pop().expect("not empty"), outs.pop().expect("not empty"));
+                    }
+                    self.graph.remove_node(into);
+                    self.graph.reinsert_node(into, ins.pop().expect("not empty"), outs.pop().expect("not empty"));
+                    self.lossy_merge_nodes.pop();
+                    self.merge_type.pop();
+                },
                 Reduction::Contract(node, ins, outs, doubles) => {
                     if !self.graph.reinsert_node(node,ins.clone(), outs.clone()) {
                         return Err(ProcessingError::RebuildError)
@@ -453,6 +479,16 @@ impl DFVSInstance {
         Err(ProcessingError::InvalidParameter("Given nodes were not suited for this merge operation.".to_owned()))
     }
 
+    /// Merges all nodes in `from` into `into` and records the alteration.
+    ///
+    /// Attention: Computing an upper bound after this function does not work properly.
+    pub fn big_merge(&mut self, into: usize, from: &Vec<usize>) -> Result<(), ProcessingError> {
+        let (ins,outs) = self.graph.big_merge(into, from.clone())?;
+        self.reductions.push(Reduction::BigMerge(into, from.clone(), ins, outs));
+        self.lossy_merge_nodes.push((into, from.clone()));
+        self.merge_type.push(MT::Lossy);
+        Ok(())
+    }
 
     /// Contracts `link` and merges `neighbors[0]` into `neighbors[1]`. Push
     /// `self.graph.num_reserved_nodes() + self.merge_nodes.len()` into the solution as a placeholder, and
@@ -465,6 +501,7 @@ impl DFVSInstance {
             let id = self.merge_nodes.len() + self.graph.num_reserved_nodes();
             self.solution.insert(id);
             self.merge_nodes.push((neighbors[1], (neighbors[0], link)));
+            self.merge_type.push(MT::Normal);
             return Ok(())
         } 
         Err(ProcessingError::InvalidParameter("Given nodes were not suited for this merge operation.".to_owned()))
@@ -482,6 +519,7 @@ impl DFVSInstance {
             let id = self.merge_nodes.len() + self.graph.num_reserved_nodes();
             self.solution.insert(id);
             self.merge_nodes.push((neighbors[1], (neighbors[0], link)));
+            self.merge_type.push(MT::Normal);
             return Ok(())
         } 
         Err(ProcessingError::InvalidParameter("Given nodes were not suited for this merge operation.".to_owned()))
@@ -528,14 +566,24 @@ impl DFVSInstance {
     /// Can't currently be reversed.
     /// TODO: Make it not fuck up the reverse.
     pub fn finallize_solution(&mut self) {
-        while !self.merge_nodes.is_empty() {
-            let id = self.graph.num_reserved_nodes() + self.merge_nodes.len() - 1;
-            self.solution.remove(&id);
-            let rule = self.merge_nodes.pop().expect("`merge_copy` is not empty");
-            if self.solution.contains(&rule.0) {
-                self.solution.insert(rule.1.0);
-            } else {
-                self.solution.insert(rule.1.1);
+        while !self.merge_type.is_empty() {
+            match self.merge_type.pop().expect("Is not empty") {
+                MT::Normal => {
+                    let id = self.graph.num_reserved_nodes() + self.merge_nodes.len() - 1;
+                    self.solution.remove(&id);
+                    let rule = self.merge_nodes.pop().expect("`merge_type` is not empty");
+                    if self.solution.contains(&rule.0) {
+                        self.solution.insert(rule.1.0);
+                    } else {
+                        self.solution.insert(rule.1.1);
+                    }
+                },
+                MT::Lossy => {
+                    let (rep, chids) = self.lossy_merge_nodes.pop().expect("`merge_type` claims that this is here.");
+                    if self.solution.contains(&rep) {
+                        self.solution.extend(chids.into_iter());
+                    }
+                },
             }
         }
     }
@@ -543,16 +591,28 @@ impl DFVSInstance {
     /// Finalizes the solution as in `self.finallize_solution()` without actually changing the
     /// solution, so the actual instance can still be redone.
     pub fn finallize_solution_temp(&mut self) -> FxHashSet<usize> {
-        let mut merge_copy = self.merge_nodes.clone();
+        let mut merge_nodes_copy = self.merge_nodes.clone();
+        let mut lossy_merge_nodes_copy = self.lossy_merge_nodes.clone();
+        let mut merge_type_copy = self.merge_type.clone();
         let mut solution_copy = self.solution.clone();
-        while !merge_copy.is_empty() {
-            let id = self.graph.num_reserved_nodes() + merge_copy.len() - 1;
-            solution_copy.remove(&id);
-            let rule = merge_copy.pop().expect("`merge_copy` is not empty");
-            if solution_copy.contains(&rule.0) {
-                solution_copy.insert(rule.1.0);
-            } else {
-                solution_copy.insert(rule.1.1);
+        while !merge_type_copy.is_empty() {
+            match merge_type_copy.pop().expect("Is not empty") {
+                MT::Normal => {
+                    let id = self.graph.num_reserved_nodes() + merge_nodes_copy.len() - 1;
+                    solution_copy.remove(&id);
+                    let rule = merge_nodes_copy.pop().expect("`merge_type_copy` is not empty");
+                    if solution_copy.contains(&rule.0) {
+                        solution_copy.insert(rule.1.0);
+                    } else {
+                        solution_copy.insert(rule.1.1);
+                    }
+                },
+                MT::Lossy => {
+                    let (rep, chids) = lossy_merge_nodes_copy.pop().expect("`merge_type_copy` claims that this is here.");
+                    if solution_copy.contains(&rep) {
+                        solution_copy.extend(chids.into_iter());
+                    }
+                },
             }
         }
         solution_copy
@@ -561,16 +621,28 @@ impl DFVSInstance {
     /// Finalizes a given solution `sol` as in `self.finallize_solution()` without actually changing
     /// `self.solution`, so the actual instance can still be redone.
     pub fn finallize_given_solution_temp(&self, sol: &FxHashSet<usize>) -> FxHashSet<usize> {
-        let mut merge_copy = self.merge_nodes.clone();
+        let mut merge_nodes_copy = self.merge_nodes.clone();
+        let mut lossy_merge_nodes_copy = self.lossy_merge_nodes.clone();
+        let mut merge_type_copy = self.merge_type.clone();
         let mut solution_copy = sol.clone();
-        while !merge_copy.is_empty() {
-            let id = self.graph.num_reserved_nodes() + merge_copy.len() - 1;
-            solution_copy.remove(&id);
-            let rule = merge_copy.pop().expect("`merge_copy` is not empty");
-            if solution_copy.contains(&rule.0) {
-                solution_copy.insert(rule.1.0);
-            } else {
-                solution_copy.insert(rule.1.1);
+        while !merge_type_copy.is_empty() {
+            match merge_type_copy.pop().expect("Is not empty") {
+                MT::Normal => {
+                    let id = self.graph.num_reserved_nodes() + merge_nodes_copy.len() - 1;
+                    solution_copy.remove(&id);
+                    let rule = merge_nodes_copy.pop().expect("`merge_type_copy` is not empty");
+                    if solution_copy.contains(&rule.0) {
+                        solution_copy.insert(rule.1.0);
+                    } else {
+                        solution_copy.insert(rule.1.1);
+                    }
+                },
+                MT::Lossy => {
+                    let (rep, chids) = lossy_merge_nodes_copy.pop().expect("`merge_type_copy` claims that this is here.");
+                    if solution_copy.contains(&rep) {
+                        solution_copy.extend(chids.into_iter());
+                    }
+                },
             }
         }
         solution_copy

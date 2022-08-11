@@ -81,8 +81,8 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let priorities_org = vec![
         vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal],
         vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::QuickAdvancedPetal],
-        vec![Rule::SimpleRules, Rule::Lossy1(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
-        vec![Rule::SimpleRules, Rule::Lossy1(1), Rule::Dome, Rule::SCC, Rule::QuickAdvancedPetal],
+        vec![Rule::SimpleRules, Rule::LossyClique(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
+        vec![Rule::SimpleRules, Rule::LossyClique(1), Rule::Dome, Rule::SCC, Rule::QuickAdvancedPetal],
     ];
 
     // Initialize output files
@@ -492,15 +492,15 @@ fn write_complex_stuff(
             for r in 0..merged_set.len() {
                 let rule = &merged_set[r];
                 if r < merged_set.len()-1 {
-                    if rule.rule == Rule::Lossy1(1) || 
-                        rule.rule == Rule::GlobalLossy2(2) {
+                    if rule.rule == Rule::LossyClique(1) || 
+                        rule.rule == Rule::GlobalLossyContraction(2) {
                         line.push_str(&format!("{}, {}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                     } else {
                         line.push_str(&format!("{}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
                     }
                 } else {
-                    if rule.rule == Rule::Lossy1(1) || 
-                        rule.rule == Rule::GlobalLossy2(2) {
+                    if rule.rule == Rule::LossyClique(1) || 
+                        rule.rule == Rule::GlobalLossyContraction(2) {
                         line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
                     } else {
                         line.push_str(&format!("{}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
@@ -513,7 +513,7 @@ fn write_complex_stuff(
             line.push_str(&format!("{:?} ", g_name));
             // file line with aproprate amount of ,
             match i {
-                0 => line.push_str(",,,,,,,,,,,,,,,"), 
+                0 => line.push_str(",,,,,,,,,,,,,,,,,,,,"), 
                 1 | 2=> line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,"), 
                 _ => (),
             }

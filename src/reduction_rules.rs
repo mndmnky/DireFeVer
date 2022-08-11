@@ -1,6 +1,6 @@
 use crate::dfvs_instance::DFVSInstance;
 use fxhash::FxHashSet;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Rule {
@@ -16,8 +16,8 @@ pub enum Rule {
     Petal,
     AdvancedPetal,
     QuickAdvancedPetal,
-    Lossy1(usize),
-    GlobalLossy2(usize),
+    LossyClique(usize),
+    GlobalLossyContraction(usize),
 }
 
 impl DFVSInstance {
@@ -1028,7 +1028,7 @@ impl DFVSInstance {
     /// Applies a lossy kernelization rule that adds strong cliques of size > `quality` to the
     /// solution. 
     /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst 1 + 1/`quality` times as large.
-    pub fn apply_lossy_rules(&mut self, quality: usize) -> bool {
+    pub fn apply_lossy_clique_rules(&mut self, quality: usize) -> bool {
         let greed_clique = self.graph.greedy_max_clique();
         let len = greed_clique.len();
         if len > quality {
@@ -1042,7 +1042,7 @@ impl DFVSInstance {
     /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst `quality` times as large.
     ///
     /// Attention: This one does not work!
-    pub fn apply_simple_lossy2_rules(&mut self, quality: usize) -> bool {
+    pub fn apply_simple_lossy_contraction_rules(&mut self, quality: usize) -> bool {
         if let Some((node,neighs)) = self.graph.get_min_min_direct_degree_node_and_neighbors() {
             if neighs.len() <= quality {
                 self.contract_node(node).expect("`node` exists");
@@ -1058,7 +1058,7 @@ impl DFVSInstance {
     /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst `quality` times as large.
     ///
     /// Attention: This one does not work!
-    pub fn apply_advanced_lossy2_rules(&mut self, quality: usize) -> bool {
+    pub fn apply_advanced_lossy_contraction_rules(&mut self, quality: usize) -> bool {
         for node in self.graph.nodes().collect::<Vec<_>>() {
             let num_petals = self.graph.count_petals(node);
             if num_petals <= quality {
@@ -1079,7 +1079,7 @@ impl DFVSInstance {
     /// quality of the applied lossy rules. E.g. if after this rule the lossy1 rules are applied
     /// with a parameter of 1 (which normally leads to an approximation factor of 2) the new
     /// approximation factor will be 4 in the worst case.
-    pub fn apply_lossy2_global_rule(&mut self, quality: usize) -> usize {
+    pub fn apply_lossy_contraction_global_rule(&mut self, quality: usize) -> usize {
         let mut nodes: FxHashSet<_> = self.graph.nodes().collect();
         let mut num_contracted = 0;
         while !nodes.is_empty() {
@@ -1094,6 +1094,109 @@ impl DFVSInstance {
             
         }
         return num_contracted;
+    }
+
+    /// Applies a lossy kernelization rule that adds cycles of size <= `quality` to the
+    /// solution. 
+    /// By the repeated application of this rule with parameter `quality`, the size of an optimal solution for the resulting kernel can become at worst `quality` times as large.
+    pub fn apply_lossy_cycle_rule(&mut self, quality: usize) -> bool {
+        assert!(quality>=3);
+        let cycles = self.graph.find_disjoint_cycles_of_at_most_size(quality);
+        let len = cycles.len();
+        for cycle in cycles {
+            self.add_all_to_solution(&cycle.into_iter().collect()).expect("All of them exist");
+        }
+        return len > 0
+    }
+
+    /// Applies a lossy reduction rule that looks for a set of node disjoint cycles in `self.graph`
+    /// and for each of those cycles adds the node with the highest degree to the solution.
+    /// This a Type 3 lossy reduction with an approximation factor of 2.
+    pub fn apply_lossy_indie_cycle_rule(&mut self) {
+        // TODO here we could use a more specific function 
+        let cycles = self.graph.find_semi_disjoint_cycles(1);
+        dbg!(&cycles);
+        for cycle in cycles {
+            // TODO: we can use `cai_weight` here.
+            let max_node = cycle.iter().max_by_key(|node| self.graph.degree(**node)).expect("No empty cycles");
+            self.add_to_solution(*max_node).expect("`max_node` exists");
+        }
+    }
+
+    /// Applies a lossy reduction rule that looks for a set of node disjoint cycles in `self.graph`
+    /// and for each of those cycles adds the node with the highest degree to the solution.
+    /// This a Type 3 lossy reduction with an approximation factor of 2.
+    pub fn apply_lossy_semi_indie_cycle_rule(&mut self, max_cycle_count: usize) -> bool {
+        assert!(max_cycle_count >= 1);
+        let mut cycles = self.graph.find_semi_disjoint_cycles(max_cycle_count);
+        dbg!(&cycles);
+        let mut room: usize = (cycles.len() as f64/max_cycle_count as f64).floor() as usize;
+        if room == 0 {
+            return false;
+        }
+        let mut kill_list = Vec::new();
+        'outer: loop {
+            kill_list.sort_unstable();
+            kill_list.reverse();
+            for i in kill_list {
+                cycles.swap_remove(i);
+            }
+            let mut counts = HashMap::new();
+            for i in 0..cycles.len() {
+                for node in &cycles[i] {
+                    let list = counts.entry(node).or_insert(Vec::new());
+                    list.push(i);
+                    if list.len() == max_cycle_count {
+                        self.add_to_solution(*node).expect("`max_node` exists");
+                        room -= 1;
+                        if room == 0 {
+                            return true;
+                        }
+                        kill_list = list.clone();
+                        continue 'outer
+                    }
+                }
+            }
+            if let Some((n, list)) = counts.iter().max_by_key(|(_, list)| list.len()) {
+                self.add_to_solution(**n).expect("`max_node` exists");
+                room -= 1;
+                if room == 0 {
+                    return true;
+                }
+                kill_list = list.clone();
+            } else {
+                break
+            }
+        }
+        panic!("Should never be reached");
+    }
+
+    /// Applies a lossy reduction rule that adds nodes to the solution that split the graph into
+    /// strongly connected components.
+    /// The approximation factor of this rule is upper bounded by 2.
+    ///
+    /// TODO: record quality
+    pub fn apply_lossy_cut_rule(&mut self) -> bool {
+        let cut_nodes = self.graph.find_split_set();
+        if cut_nodes.len() >= 1 {
+            self.add_all_to_solution(&cut_nodes).expect("all nodes in `cut_nodes` exist");
+            return true
+        }
+        false
+    }
+
+    /// Applies a lossy reduction rule where node disjoint transtive edge structures of the form (a,b) (a,c)
+    /// (c,b) of edges not in PIE are merged to one node. This is a Type A reduction rule with an
+    /// approximation factor of 3.
+    ///
+    /// Attention, after the application of this rule you won't be able to compute any more
+    /// meaningfull upper bounds.
+    pub fn apply_lossy_merge_rule(&mut self) -> bool {
+        let transtive_structs = self.graph.find_disjoint_transitive_structures();
+        for tst in &transtive_structs {
+            self.big_merge(tst.0, &vec![tst.1, tst.2]);
+        }
+        return transtive_structs.len() > 0
     }
 
     /// Applies the different rules in the order of `priority_list` each time a rule reduced the instance the function starts from the top.
@@ -1178,8 +1281,8 @@ impl DFVSInstance {
                             continue 'outer
                         }
                     },
-                    Rule::Lossy1(q) => {
-                        if self.apply_lossy_rules(*q) {
+                    Rule::LossyClique(q) => {
+                        if self.apply_lossy_clique_rules(*q) {
                             self.reset_upper();
                             continue 'outer
                         }
@@ -1578,14 +1681,14 @@ mod tests {
         let mut clone = instance.clone();
         let mut clone2 = instance.clone();
         let mut moar = 0;
-        while instance.apply_lossy_rules(1) {
+        while instance.apply_lossy_clique_rules(1) {
             moar += 1;
         }
         assert_eq!(moar, 3);
         assert_eq!(instance.graph.num_edges(), 0);
         assert_eq!(instance.solution.len(), 6+3);
         let mut moar = 0;
-        while clone.apply_lossy_rules(2) {
+        while clone.apply_lossy_clique_rules(2) {
             moar += 1;
         }
         assert_eq!(moar, 2);
@@ -1593,7 +1696,7 @@ mod tests {
         assert_eq!(clone.graph.num_nodes(), 0);
         assert_eq!(clone.solution.len(), 6+2);
         let mut moar = 0;
-        while clone2.apply_lossy_rules(3) {
+        while clone2.apply_lossy_clique_rules(3) {
             moar += 1;
         }
         assert_eq!(moar, 1);
@@ -1623,7 +1726,70 @@ mod tests {
         let (should3, left) = left.count_petals_left_over(11);
         assert_eq!(should3, 3);
         assert_eq!(left.num_nodes(), 2);
-        assert_eq!(instance.apply_lossy2_global_rule(3), 2);
+        assert_eq!(instance.apply_lossy_contraction_global_rule(3), 2);
+    }
+
+    #[test]
+    fn lossy_cycle_test() {
+        let gr = Cursor::new("12 24 0\n2 4\n3 5\n1 6\n\
+                             5 7\n6 8\n4 9\n\
+                             8 10\n9 11\n7 12\n\
+                             11 1\n12 2\n10 3\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let mut instance = DFVSInstance::new(g, None, None);
+        assert!(instance.apply_lossy_cycle_rule(3));
+        assert_eq!(instance.graph.num_nodes(), 0);
+        assert_eq!(instance.solution.len(), 12);
+    }
+
+    // TODO: how to test?
+    // #[test]
+    // fn lossy_indie_test() {
+    //     let gr = Cursor::new("9 21 0\n2 4 5\n3 4\n1 6\n\
+    //                          5 7 9\n6 8\n4 7\n\
+    //                          1 3 8\n1 9\n2 7\n");
+    //     let g = Digraph::read_graph(gr);
+    //     assert!(g.is_ok());
+    //     let g = g.unwrap();
+    //     let mut instance = DFVSInstance::new(g, None, None);
+    //     instance.apply_lossy_indie_cycle_rule();
+    //     assert_eq!(instance.graph.num_nodes(), 6);
+    //     assert_eq!(instance.solution, vec![0, 3, 6].into_iter().collect());
+    // }
+
+    // TODO: how to test?
+    // #[test]
+    // fn lossy_semi_indie_test() {
+    //     let gr = Cursor::new("8 21 0\n2 4\n3\n1\n\
+    //                          5 7\n6\n4 8\n\
+    //                          1 6\n7\n");
+    //     let g = Digraph::read_graph(gr);
+    //     assert!(g.is_ok());
+    //     let g = g.unwrap();
+    //     let mut instance = DFVSInstance::new(g, None, None);
+    //     assert!(instance.apply_lossy_semi_indie_cycle_rule(2));
+    //     dbg!(&instance.solution);
+    //     assert_eq!(instance.graph.num_nodes(), 6);
+    //     assert_eq!(instance.solution, vec![0, 6].into_iter().collect());
+    // }
+    
+    #[test]
+    fn lossy_merge_rule_test() {
+        let gr = Cursor::new("7 14 0\n\
+                             2 3\n3 4\n4 5\n5 6\n6 7\n7 1\n1 2\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let mut instance = DFVSInstance::new(g, None, None);
+        let c_ins= instance.clone();
+        assert!(instance.apply_lossy_merge_rule());
+        assert!(instance.add_to_solution(0).is_ok());
+        let sol = instance.finallize_solution_temp();
+        assert_eq!(sol, vec![0,1,2].into_iter().collect());
+        assert!(instance.rebuild_complete().is_ok());
+        assert_eq!(instance, c_ins);
     }
 
 }
