@@ -191,6 +191,7 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Lossy indie cycle rule (with supporting functions)
 * Lossy semi indie cycle rule (with supporting functions)
 * Lossy merge rule (with supporting functions and DFVSInstance support)
+* Binaries for experiments
 
 ## Todo
 
