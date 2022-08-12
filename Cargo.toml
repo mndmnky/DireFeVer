@@ -26,6 +26,10 @@ name = "typec"
 path = "src/bin/type_c_exp.rs"
 
 [[bin]]
+name = "typeb"
+path = "src/bin/type_b_exp.rs"
+
+[[bin]]
 name = "test"
 path = "src/bin/test.rs"
 

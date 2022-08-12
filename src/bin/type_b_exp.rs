@@ -1,6 +1,6 @@
 //!
 //! This binary is only meant for experiments.
-//! Runs Type C lossy reduction rules and outputs a csv containing statistics for the rules and the
+//! Runs Type B lossy reduction rules and outputs a csv containing statistics for the rules and the
 //! resulting kernel.
 
 use std::error;
@@ -51,7 +51,7 @@ impl From<std::io::Error> for ThreadErr {
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
     // CLI stuff
-    let m = Command::new("typec")
+    let m = Command::new("typeb")
         .arg(Arg::new("files")
              .takes_value(true)
              .multiple_values(true)
@@ -68,20 +68,49 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     // Rule priority sets
     let priorities_org = vec![
-        //vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal],
-        vec![Rule::SimpleRules, Rule::LossyClique(1), Rule::LossyCycle(3), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
+        vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal],
+        //vec![Rule::SimpleRules, Rule::LossyClique(1), Rule::LossyCycle(3), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
     ];
 
     // Initialize output files
     let mut out_files = vec![
-        File::create(format!("{}/type_c_rules.csv",dest))?,
+        File::create(format!("{}/lossy_cut_rule.csv",dest))?,
+        File::create(format!("{}/lossy_indie_rules.csv",dest))?,
+        File::create(format!("{}/lossy_semi_indie_rules.csv",dest))?,
     ];
+
     writeln!(&mut out_files[0], "name, nk, mk, sk, uk,\
+             t_lcut, n_lcut, m_lcut, maxoff_lcut,\
              t_st, n_st, m_st,\
-             t_lcli, n_lcli, m_lcli, maxoff_lcli,\
-             t_lcy, n_lcy, m_lcy, maxoff_lcy,\
+             t_ln, n_ln, m_ln,\
+             t_tn, n_tn, m_tn,\
              t_dome, n_dome, m_dome,\
              t_scc, n_scc, m_scc,\
+             t_cliq, n_cliq, m_cliq,\
+             t_core, n_core, m_core,\
+             t_domino, n_domino, m_domino,\
+             t_ap, n_ap, m_ap")?;
+    writeln!(&mut out_files[1], "name, nk, mk, sk, uk,\
+             t_ldc, n_ldc, m_ldc, maxoff_ldc,\
+             t_st, n_st, m_st,\
+             t_ln, n_ln, m_ln,\
+             t_tn, n_tn, m_tn,\
+             t_dome, n_dome, m_dome,\
+             t_scc, n_scc, m_scc,\
+             t_cliq, n_cliq, m_cliq,\
+             t_core, n_core, m_core,\
+             t_domino, n_domino, m_domino,\
+             t_ap, n_ap, m_ap")?;
+    writeln!(&mut out_files[2], "name, nk, mk, sk, uk,\
+             t_lsdc, n_lsdc, m_lsdc, maxoff_lsdc,\
+             t_st, n_st, m_st,\
+             t_ln, n_ln, m_ln,\
+             t_tn, n_tn, m_tn,\
+             t_dome, n_dome, m_dome,\
+             t_scc, n_scc, m_scc,\
+             t_cliq, n_cliq, m_cliq,\
+             t_core, n_core, m_core,\
+             t_domino, n_domino, m_domino,\
              t_ap, n_ap, m_ap")?;
 
     // Read graphs
@@ -131,10 +160,62 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             let mut kernels = Vec::new();
             let mut rules = Vec::new();
             let mut uppers = Vec::new();
-            match dfvsi.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
+            
+            let mut dfvsi_clone = dfvsi.clone();
+            let cut_stats = dfvsi_clone.apply_lossy_cut_once();
+            match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
                 Ok(rule_stats) => {
-                    kernels.push(dfvsi.clone());
-                    rules.push(rule_stats);
+                    kernels.push(dfvsi_clone.clone());
+                    // Merge rules:
+                    let mut allrs = vec![cut_stats];
+                    allrs.extend(rule_stats);
+                    rules.push(allrs);
+                    dfvsi.compute_and_set_fast_upper(true);
+                    let upper = dfvsi.upper_bound.expect("was set");
+                    uppers.push(upper);
+                    // eprintln!("Done {:?}",n1);
+                    // done_sender.send(1)?;
+                    // return Ok(Some((kernels, rules, uppers)));
+                },
+                Err(_) => {
+                    eprintln!("Interrupted {:?}",n1);
+                    done_sender.send(1)?;
+                    return Ok(None);
+                },
+            };
+
+            let mut dfvsi_clone = dfvsi.clone();
+            let cut_stats = dfvsi_clone.apply_lossy_indie_cycle_rule_once();
+            match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
+                Ok(rule_stats) => {
+                    kernels.push(dfvsi_clone.clone());
+                    // Merge rules:
+                    let mut allrs = vec![cut_stats];
+                    allrs.extend(rule_stats);
+                    rules.push(allrs);
+                    dfvsi.compute_and_set_fast_upper(true);
+                    let upper = dfvsi.upper_bound.expect("was set");
+                    uppers.push(upper);
+                    // eprintln!("Done {:?}",n1);
+                    // done_sender.send(1)?;
+                    // return Ok(Some((kernels, rules, uppers)));
+                },
+                Err(_) => {
+                    eprintln!("Interrupted {:?}",n1);
+                    done_sender.send(1)?;
+                    return Ok(Some((kernels, rules, uppers)));
+                },
+            };
+
+            let mut dfvsi_clone = dfvsi.clone();
+            let cut_stats = dfvsi_clone.apply_lossy_semi_indie_cycle_rule_once();
+            match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
+                Ok(rule_stats) => {
+                    kernels.push(dfvsi_clone.clone());
+                    // Merge rules:
+                    let mut allrs = vec![cut_stats];
+                    allrs.extend(rule_stats);
+                    rules.push(allrs);
                     dfvsi.compute_and_set_fast_upper(true);
                     let upper = dfvsi.upper_bound.expect("was set");
                     uppers.push(upper);
@@ -145,9 +226,10 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 Err(_) => {
                     eprintln!("Interrupted {:?}",n1);
                     done_sender.send(1)?;
-                    return Ok(None);
+                    return Ok(Some((kernels, rules, uppers)));
                 },
             };
+
         })));
         threads_info.push((done_receiver, false, name.clone()));
 
@@ -172,10 +254,10 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         Ok(Ok(Some((left_overs, rules, heur)))) => {
                             // Write file regarding of the `go` or how much was done before
                             // the interrupt.
-                            write_complex_stuff(dest, g_name, &left_overs, &heur, &mut out_files, &rules)?;
+                            write_stuff(dest, g_name, &left_overs, &heur, &mut out_files, &rules)?;
                         },
                         Ok(Ok(None)) => {
-                            write_complex_stuff(dest, g_name, &vec![], &vec![], &mut out_files, &vec![])?;
+                            write_stuff(dest, g_name, &vec![], &vec![], &mut out_files, &vec![])?;
                         },
                         Ok(Err(_)) => eprintln!("Some thread paniced"),
                         Err(_) => eprintln!("Some thread paniced"),
@@ -212,10 +294,10 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 let join_handle = threads[i].take().expect("`joined` is false");
                 match join_handle.join() {
                     Ok(Ok(Some((left_overs, rules, heur)))) => {
-                        write_complex_stuff(dest, name, &left_overs, &heur, &mut out_files, &rules)?;
+                        write_stuff(dest, name, &left_overs, &heur, &mut out_files, &rules)?;
                     },
                     Ok(Ok(None)) => {
-                        write_complex_stuff(dest, name, &vec![], &vec![], &mut out_files, &vec![])?;
+                        write_stuff(dest, name, &vec![], &vec![], &mut out_files, &vec![])?;
                     },
                     Ok(Err(_)) => eprintln!("Some thread paniced"),
                     Err(_) => eprintln!("Some thread paniced"),
@@ -233,39 +315,43 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
-fn write_complex_stuff(
+fn write_stuff(
     dest: &str, g_name: &OsString, left_overs: &Vec<DFVSInstance>, heurs: &Vec<usize>, 
     out_files: &mut Vec<File>, rule_set: &Vec<Vec<RuleStats>>) -> Result<(), Box<dyn error::Error>> {
-    if rule_set.len() > 0{
-        left_overs[0].graph.write_graph(File::create(format!("{}/{:?}_t1k",dest,g_name))?)?;
-        let mut line = String::new();
-        line.push_str(&format!("{:?}, {}, {}, {}, {}, ", g_name, left_overs[0].graph.num_nodes(), left_overs[0].graph.num_edges(), left_overs[0].solution.len(), heurs[0]));
-        for r in 0..rule_set[0].len() {
-            let rule = &rule_set[0][r];
-            if r < rule_set[0].len()-1 {
-                if rule.rule == Rule::LossyClique(1) || 
-                    rule.rule == Rule::LossyCycle(3) {
-                    line.push_str(&format!("{}, {}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
+    for i in 0..3 {
+        if left_overs.len() <= i {
+            left_overs[i].graph.write_graph(File::create(format!("{}/{:?}_lb{}k",dest,g_name,i))?)?;
+            let mut line = String::new();
+            line.push_str(&format!("{:?}, {}, {}, {}, {}, ", g_name, left_overs[i].graph.num_nodes(), left_overs[i].graph.num_edges(), left_overs[i].solution.len(), heurs[i]));
+            for r in 0..rule_set[i].len() {
+                let rule = &rule_set[i][r];
+                if r < rule_set[i].len()-1 {
+                    if rule.rule == Rule::LossyCut || 
+                        rule.rule == Rule::LossyLower(1) ||
+                        rule.rule == Rule::LossyLower(2) {
+                        line.push_str(&format!("{}, {}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
+                    } else {
+                        line.push_str(&format!("{}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
+                    }
                 } else {
-                    line.push_str(&format!("{}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
-                }
-            } else {
-                if rule.rule == Rule::LossyClique(1) || 
-                    rule.rule == Rule::LossyCycle(3) {
-                    line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
-                } else {
-                    line.push_str(&format!("{}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
+                    if rule.rule == Rule::LossyCut || 
+                        rule.rule == Rule::LossyLower(1) ||
+                        rule.rule == Rule::LossyLower(2) {
+                        line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
+                    } else {
+                        line.push_str(&format!("{}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
+                    }
                 }
             }
+            writeln!(out_files[i], "{}",line)?;
+        } else {
+            let mut line = String::new();
+            line.push_str(&format!("{:?}", g_name));
+            // file line with aproprate amount of ,
+            // 10*3 + 5
+            line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,");
+            writeln!(out_files[i], "{}",line)?;
         }
-        writeln!(out_files[0], "{}",line)?;
-    } else {
-        let mut line = String::new();
-        line.push_str(&format!("{:?}", g_name));
-        // file line with aproprate amount of ,
-        // 6*4
-        line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,");
-        writeln!(out_files[0], "{}",line)?;
     }
     Ok(())
 }
