@@ -242,6 +242,107 @@ impl Digraph{
         found_cycle
     }
 
+    /// Finds semi node disjoint cycles in `self` so that no node is incident to more than
+    /// `max_count` cycles.
+    pub fn find_semi_disjoint_cycles_bfs(&self, max_count: usize) -> Vec<Vec<usize>> {
+        let mut cycles = Vec::new();
+        let mut node_cycle_counter: Vec<Option<usize>> = (0..self.num_reserved_nodes())
+            .map(|node| {
+                if self.has_node(node) {
+                    Some(0)
+                } else {
+                    None
+                }
+            }).collect();
+        let mut graph_clone = self.clone();
+        loop {
+            if let Some((next,amount)) = node_cycle_counter.iter().enumerate().filter(|(_,n)| n.is_some()).map(|(i,n)|(i,n.expect("is some"))).min_by_key(|(_,n)| *n) {
+                if amount >= max_count {
+                    break;
+                }
+                if let Some(next_cycle) = graph_clone.find_semi_disjoint_cycle_bfs(next, max_count, &node_cycle_counter) {
+                    // remove each edge in cycle from graph_clone
+                    let start = next_cycle[0];
+                    let mut pref = start;
+                    if node_cycle_counter[start].filter(|c| c<&(max_count-1)).is_some() {
+                        node_cycle_counter[start] = node_cycle_counter[start].map(|c| c+1);
+                    } else {
+                        node_cycle_counter[start] = None;
+                    }
+                    for node in &next_cycle[1..next_cycle.len()] {
+                        assert!(graph_clone.remove_edge(&(pref,*node)));
+                        if node_cycle_counter[*node].filter(|c| c<&(max_count-1)).is_some() {
+                            node_cycle_counter[*node] = node_cycle_counter[*node].map(|c| c+1);
+                        } else {
+                            node_cycle_counter[*node] = None;
+                        }
+                        pref = *node;
+                    }
+                    assert!(graph_clone.remove_edge(&(pref,start)));
+                    graph_clone.reduce_to_cycles_fix_list(&mut node_cycle_counter);
+                    cycles.push(next_cycle);
+                } else {
+                    // If no cycle with `next` exists 
+                    graph_clone.remove_node(next);
+                    node_cycle_counter[next] = None;
+                    graph_clone.reduce_to_cycles_fix_list(&mut node_cycle_counter);
+                }
+            } else {
+                break;
+            }
+        }
+        cycles
+    }
+
+    /// Finds a cycle in `self` containing `start_node` that uses only nodes that have been used less then `max_count`
+    /// times.
+    /// 
+    /// Cycles are found with a BFS.
+    ///
+    /// Returns a cycle containing `start_node` or `None` if no such cycle could have been found.
+    pub fn find_semi_disjoint_cycle_bfs(&mut self, start_node: usize, max_count: usize, node_cycle_counter: &Vec<Option<usize>>) 
+        -> Option<Vec<usize>> {
+        let mut marked: NodeSet = NodeSet::new();
+        let mut pred: HashMap<usize, usize> = HashMap::new(); 
+        let mut queue: VecDeque<(usize, usize)> = VecDeque::new();
+        let mut found_cycle = None;
+        queue.push_back((start_node, start_node));
+        while !queue.is_empty() {
+            let (next, pref) = queue.pop_front().expect("`queue` is not empty");
+            if !marked.contains(&next) {
+                marked.insert(next);
+                pred.insert(next, pref);
+                let outs_n = self.out_neighbors(next).as_ref().expect("`next` exists").clone();
+                let outs = outs_n.iter().filter_map(|neigh| {
+                    if let Some(count) = node_cycle_counter[*neigh]{
+                        if count < max_count {
+                            return Some((*neigh, next))
+                        }
+                    }
+                    None
+                });
+                //outs.sort_by_key(|(count,_)| *count);
+                //outs.reverse();
+                queue.extend(outs);
+            } else {
+                if next == start_node {
+                    // TODO create cycle
+                    let mut cycle = Vec::new();
+                    cycle.push(pref);
+                    let mut cur = pref;
+                    while cur != start_node {
+                        cur = *pred.get(&cur).expect("`cur` was predecessor of another node");
+                        cycle.push(cur);
+                    }
+                    cycle.reverse();
+                    found_cycle = Some(cycle);
+                    break;
+                }
+            }
+        }
+        found_cycle
+    }
+
     /// Greedily finds weak, node disjoint cycles of size `size` or smaller and returns them.
     pub fn find_disjoint_cycles_of_at_most_size(&self, size: usize) -> HashSet<Vec<usize>> {
         let mut graph_clone = self.clone();
@@ -530,6 +631,23 @@ mod tests {
         assert!(g.is_ok());
         let g = g.unwrap();
         let cycles = g.find_semi_disjoint_cycles(2);
+        assert!((cycles.len() >= 4) && (cycles.len() <= 5));
+    }
+
+    #[test]
+    fn find_semi_disjoint_cycles_bfs_test() {
+        let gr = Cursor::new("5 7 0\n2 4\n3 5\n1\n2\n1\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let cycles = g.find_semi_disjoint_cycles_bfs(2);
+        dbg!(&cycles);
+        assert_eq!(cycles.len(),2);
+        let gr = Cursor::new("8 16 0\n2 5\n3 8\n4 7\n1 6\n4 8\n3 5\n2 6\n1 7\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let cycles = g.find_semi_disjoint_cycles_bfs(2);
         assert!((cycles.len() >= 4) && (cycles.len() <= 5));
     }
 

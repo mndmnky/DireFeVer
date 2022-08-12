@@ -1123,7 +1123,7 @@ impl DFVSInstance {
     /// This a Type 3 lossy reduction with an approximation factor of 2.
     pub fn apply_lossy_indie_cycle_rule(&mut self) {
         // TODO here we could use a more specific function 
-        let cycles = self.graph.find_semi_disjoint_cycles(1);
+        let cycles = self.graph.find_semi_disjoint_cycles_bfs(1);
         dbg!(&cycles);
         for cycle in cycles {
             // TODO: we can use `cai_weight` here.
@@ -1137,7 +1137,7 @@ impl DFVSInstance {
     /// This a Type 3 lossy reduction with an approximation factor of 2.
     pub fn apply_lossy_semi_indie_cycle_rule(&mut self, max_cycle_count: usize) -> bool {
         assert!(max_cycle_count >= 1);
-        let mut cycles = self.graph.find_semi_disjoint_cycles(max_cycle_count);
+        let mut cycles = self.graph.find_semi_disjoint_cycles_bfs(max_cycle_count);
         dbg!(&cycles);
         let mut room: usize = (cycles.len() as f64/max_cycle_count as f64).floor() as usize;
         if room == 0 {
