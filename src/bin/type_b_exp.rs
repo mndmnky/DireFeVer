@@ -252,6 +252,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                     let join_handle = threads[i].take().expect("`joined` is false");
                     match join_handle.join() {
                         Ok(Ok(Some((left_overs, rules, heur)))) => {
+                            eprintln!("{:?}",rules);
                             // Write file regarding of the `go` or how much was done before
                             // the interrupt.
                             write_stuff(dest, g_name, &left_overs, &heur, &mut out_files, &rules)?;
@@ -294,6 +295,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 let join_handle = threads[i].take().expect("`joined` is false");
                 match join_handle.join() {
                     Ok(Ok(Some((left_overs, rules, heur)))) => {
+                        eprintln!("{:?}",rules);
                         write_stuff(dest, name, &left_overs, &heur, &mut out_files, &rules)?;
                     },
                     Ok(Ok(None)) => {
