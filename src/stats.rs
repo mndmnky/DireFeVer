@@ -139,6 +139,24 @@ impl DFVSInstance {
         rs
     }
 
+    /// Applies the lossy merge rule once on the instance and records the running time and the
+    /// kill count.
+    pub fn apply_lossy_merge_once(&mut self) -> RuleStats {
+        let mut rs = RuleStats::new(Rule::LossyMerge);
+        let nodes_before: u64 = self.graph.num_nodes() as u64;
+        let edges_before: i64 = self.graph.num_edges() as i64;
+        let start_time = Instant::now();
+        if self.apply_lossy_merge_rule(){
+            self.reset_upper();
+        }
+        rs.add(
+            nodes_before - self.graph.num_nodes() as u64,
+            edges_before - self.graph.num_edges() as i64,
+            start_time.elapsed().as_millis(),
+        );
+        rs
+    }
+
     /// Applies the lossy cut rule once on the instance and records the running time and the
     /// kill count.
     pub fn apply_lossy_cut_once(&mut self) -> RuleStats {
