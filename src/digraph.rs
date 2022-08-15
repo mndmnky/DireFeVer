@@ -1224,9 +1224,11 @@ impl Digraph {
             let mut clone = self.clone();
             let mut cut_vertices = FxHashSet::default();
             for _ in 0..cut_size {
-                let tn = nodes.pop().expect("`nodes` is not empty");
-                clone.remove_node(tn);
-                cut_vertices.insert(tn);
+                if nodes.len() > 0 {
+                    let tn = nodes.pop().expect("`nodes` is not empty");
+                    clone.remove_node(tn);
+                    cut_vertices.insert(tn);
+                }
             }
             if let Some(sccs) = clone.reduce_to_sccs() {
                 if sccs.len() > 1 {
@@ -1297,9 +1299,11 @@ impl Digraph {
             let mut clone = self.clone();
             let mut cut_vertices = FxHashSet::default();
             for _ in 0..cut_size {
-                let tn = nodes.pop().expect("`nodes` is not empty");
-                clone.remove_node(tn);
-                cut_vertices.insert(tn);
+                if nodes.len() > 0 {
+                    let tn = nodes.pop().expect("`nodes` is not empty");
+                    clone.remove_node(tn);
+                    cut_vertices.insert(tn);
+                }
             }
             if let Some(sccs) = clone.reduce_to_sccs_allow_contracted(contraction_map) {
                 if sccs.len() > 1 {
