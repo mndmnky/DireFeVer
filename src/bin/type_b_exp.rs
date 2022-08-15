@@ -174,7 +174,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             let mut uppers = Vec::new();
             
             let mut dfvsi_clone = dfvsi.clone();
-            let cut_stats = dfvsi_clone.apply_lossy_cut_once();
+            let cut_stats = dfvsi_clone.apply_lossy_cut_once(10);
             match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
                 Ok(rule_stats) => {
                     kernels.push(dfvsi_clone.clone());
@@ -197,7 +197,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             };
 
             let mut dfvsi_clone = dfvsi.clone();
-            let cut_stats = dfvsi_clone.apply_lossy_cut_variation_once();
+            let cut_stats = dfvsi_clone.apply_lossy_cut_variation_once(10);
             match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
                 Ok(rule_stats) => {
                     kernels.push(dfvsi_clone.clone());
@@ -363,8 +363,10 @@ fn write_stuff(
             for r in 0..rule_set[i].len() {
                 let rule = &rule_set[i][r];
                 if r < rule_set[i].len()-1 {
-                    if rule.rule == Rule::LossyCut || 
-                        rule.rule == Rule::LossyCutVariation || 
+                    if rule.rule == Rule::LossyCut(10) || 
+                        rule.rule == Rule::LossyCutVariation(10) || 
+                        rule.rule == Rule::LossyCut(1) || 
+                        rule.rule == Rule::LossyCutVariation(1) || 
                         rule.rule == Rule::LossyLower(1) ||
                         rule.rule == Rule::LossyLower(2) {
                         line.push_str(&format!("{}, {}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
@@ -372,8 +374,10 @@ fn write_stuff(
                         line.push_str(&format!("{}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges));
                     }
                 } else {
-                    if rule.rule == Rule::LossyCut || 
-                        rule.rule == Rule::LossyCutVariation || 
+                    if rule.rule == Rule::LossyCut(10) || 
+                        rule.rule == Rule::LossyCutVariation(10) || 
+                        rule.rule == Rule::LossyCut(1) || 
+                        rule.rule == Rule::LossyCutVariation(1) || 
                         rule.rule == Rule::LossyLower(1) ||
                         rule.rule == Rule::LossyLower(2) {
                         line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));

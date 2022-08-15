@@ -1092,12 +1092,16 @@ impl Digraph {
 
     /// Finds a set of n nodes, such that their removal would split the graph into at least n+1
     /// strongly connected components.
-    pub fn find_split_set(&self) -> FxHashSet<usize> {
+    ///
+    /// # Arguments 
+    ///
+    /// * `cut_size` - The amount of nodes tried in each step.
+    pub fn find_split_set(&self, cut_size: usize) -> FxHashSet<usize> {
         // get all sccs 
         let subs = self.split_into_connected_components_alt();
         let mut cut_vertices: FxHashSet<usize> = FxHashSet::default();
         for mut sub in subs {
-            if let Some(cut_vs) = sub.split_scc_recursively() {
+            if let Some(cut_vs) = sub.split_scc_recursively(cut_size) {
                 cut_vertices.extend(cut_vs.into_iter());
             }
         }
@@ -1121,7 +1125,11 @@ impl Digraph {
     /// TODO: Repeat and compare different levels.
     /// Finds a set of n nodes, such that their removal would split the graph into strongly connected
     /// components.
-    pub fn find_split_set_by_edge_contraction(&self) -> Option<(FxHashSet<usize>, usize)> {
+    ///
+    /// # Arguments 
+    ///
+    /// * `cut_size` - The amount of nodes tried in each step.
+    pub fn find_split_set_by_edge_contraction(&self, cut_size: usize) -> Option<(FxHashSet<usize>, usize)> {
         let mut gc = self.clone();
         let mut split_set = FxHashSet::default();
         let mut scc_count = 0;
@@ -1160,7 +1168,7 @@ impl Digraph {
                 }
             }
             // Find bridges between sccs
-            if let Some(cuts) = gc.split_scc_recursively_on_contracted(&reps, &mut scc_count) {
+            if let Some(cuts) = gc.split_scc_recursively_on_contracted(&reps, &mut scc_count, cut_size) {
                 for cut in cuts {
                     split_set.insert(cut);
                     if reps.contains_key(&cut) {
@@ -1184,54 +1192,120 @@ impl Digraph {
     /// Looks for a node that splits `self` into two or more strongly connected components and
     /// repeats recursively until no more node can be found. Returns the set of cut nodes, or
     /// `None` if none could have been found.
-    fn split_scc_recursively(&mut self) -> Option<FxHashSet<usize>> {
-        let mut nodes: Vec<usize> = self.nodes().collect();
-        nodes.sort_unstable_by_key(|n| self.degree(*n));
-        while !nodes.is_empty() {
-            let tn = nodes.pop().expect("`nodes` is not empty");
+    ///
+    /// # Arguments 
+    ///
+    /// * `cut_size` - The amount of nodes tried in each step.
+    fn split_scc_recursively(&mut self, cut_size: usize) -> Option<FxHashSet<usize>> {
+        if cut_size == 1 {
+            let mut nodes: Vec<usize> = self.nodes().collect();
+            nodes.sort_unstable_by_key(|n| self.degree(*n));
+            while !nodes.is_empty() {
+                let tn = nodes.pop().expect("`nodes` is not empty");
+                let mut clone = self.clone();
+                clone.remove_node(tn);
+                if let Some(sccs) = clone.reduce_to_sccs() {
+                    let mut cut_vertices: FxHashSet<usize> = vec![tn].into_iter().collect();
+                    if sccs.len() > 1 {
+                        let subs = clone.split_into_connected_components_alt();
+                        for mut sub in subs {
+                            if let Some(cut_vs) = sub.split_scc_recursively(cut_size){
+                                cut_vertices.extend(cut_vs.into_iter());
+                            }
+                        }
+                        return Some(cut_vertices);
+                    }
+                }
+            }
+            None
+        } else {
+            let mut nodes: Vec<usize> = self.nodes().collect();
+            nodes.sort_unstable_by_key(|n| self.degree(*n));
             let mut clone = self.clone();
-            clone.remove_node(tn);
+            let mut cut_vertices = FxHashSet::default();
+            for _ in 0..cut_size {
+                let tn = nodes.pop().expect("`nodes` is not empty");
+                clone.remove_node(tn);
+                cut_vertices.insert(tn);
+            }
             if let Some(sccs) = clone.reduce_to_sccs() {
-                let mut cut_vertices: FxHashSet<usize> = vec![tn].into_iter().collect();
                 if sccs.len() > 1 {
                     let subs = clone.split_into_connected_components_alt();
                     for mut sub in subs {
-                        if let Some(cut_vs) = sub.split_scc_recursively(){
+                        if let Some(cut_vs) = sub.split_scc_recursively(cut_size){
                             cut_vertices.extend(cut_vs.into_iter());
                         }
                     }
                     return Some(cut_vertices);
                 }
             }
+            None
         }
-        None
     }
 
     /// Looks for a node that splits `self` into two or more strongly connected components and
     /// repeats recursively until no more node can be found. Returns the set of cut nodes, or
     /// `None` if none could have been found.
-    fn split_scc_recursively_on_contracted(&mut self, contraction_map: &FxHashMap<usize, Vec<usize>>, scc_amn: &mut usize) -> Option<FxHashSet<usize>> {
-        let mut nodes: Vec<usize> = self.nodes().collect();
-        nodes.sort_unstable_by_key(|n| self.degree(*n));
-        nodes.reverse();
-        nodes.sort_by_key(|n| {
-            if contraction_map.contains_key(n) {
-                contraction_map.get(n).expect("contained").len()
-            } else {
-                1
+    ///
+    /// # Arguments 
+    ///
+    /// * `cut_size` - The amount of nodes tried in each step.
+    fn split_scc_recursively_on_contracted(&mut self, contraction_map: &FxHashMap<usize, Vec<usize>>, scc_amn: &mut usize, cut_size: usize) -> Option<FxHashSet<usize>> {
+        if cut_size == 1 {
+            let mut nodes: Vec<usize> = self.nodes().collect();
+            nodes.sort_unstable_by_key(|n| self.degree(*n));
+            nodes.reverse();
+            nodes.sort_by_key(|n| {
+                if contraction_map.contains_key(n) {
+                    contraction_map.get(n).expect("contained").len()
+                } else {
+                    1
+                }
+            });
+            nodes.reverse();
+            while !nodes.is_empty() {
+                let tn = nodes.pop().expect("`nodes` is not empty");
+                let mut clone = self.clone();
+                clone.remove_node(tn);
+                if let Some(sccs) = clone.reduce_to_sccs_allow_contracted(contraction_map) {
+                    let mut cut_vertices: FxHashSet<usize> = vec![tn].into_iter().collect();
+                    if sccs.len() > 1 {
+                        let subs = clone.split_into_connected_components_alt();
+                        for mut sub in subs {
+                            if let Some(cut_vs) = sub.split_scc_recursively_on_contracted(contraction_map, scc_amn, cut_size){
+                                cut_vertices.extend(cut_vs.into_iter());
+                            }
+                        }
+                        scc_amn.add_assign(sccs.len());
+                        return Some(cut_vertices);
+                    }
+                }
             }
-        });
-        nodes.reverse();
-        while !nodes.is_empty() {
-            let tn = nodes.pop().expect("`nodes` is not empty");
+            return None
+        } else {
+            let mut nodes: Vec<usize> = self.nodes().collect();
+            nodes.sort_unstable_by_key(|n| self.degree(*n));
+            nodes.reverse();
+            nodes.sort_by_key(|n| {
+                if contraction_map.contains_key(n) {
+                    contraction_map.get(n).expect("contained").len()
+                } else {
+                    1
+                }
+            });
+            nodes.reverse();
             let mut clone = self.clone();
-            clone.remove_node(tn);
+            let mut cut_vertices = FxHashSet::default();
+            for _ in 0..cut_size {
+                let tn = nodes.pop().expect("`nodes` is not empty");
+                clone.remove_node(tn);
+                cut_vertices.insert(tn);
+            }
             if let Some(sccs) = clone.reduce_to_sccs_allow_contracted(contraction_map) {
-                let mut cut_vertices: FxHashSet<usize> = vec![tn].into_iter().collect();
                 if sccs.len() > 1 {
                     let subs = clone.split_into_connected_components_alt();
                     for mut sub in subs {
-                        if let Some(cut_vs) = sub.split_scc_recursively_on_contracted(contraction_map, scc_amn){
+                        if let Some(cut_vs) = sub.split_scc_recursively_on_contracted(contraction_map, scc_amn, cut_size){
                             cut_vertices.extend(cut_vs.into_iter());
                         }
                     }
@@ -1239,8 +1313,8 @@ impl Digraph {
                     return Some(cut_vertices);
                 }
             }
+            return None
         }
-        None
     }
 
     /// Looks for a node that splits `self` into two or more strongly connected components and
@@ -1277,7 +1351,7 @@ impl Digraph {
     /// nodes, and try to split then.
     fn split_scc_adv(&mut self) -> Option<FxHashSet<usize>> {
         // find cuts as in the old version
-        if let Some(cut_vs) = self.split_scc_recursively() {
+        if let Some(cut_vs) = self.split_scc_recursively(1) {
             return Some(cut_vs);
         }
         // if none where found:
@@ -2476,7 +2550,7 @@ mod tests {
         let g = Digraph::read_graph(gr);
         assert!(g.is_ok());
         let g = g.unwrap();
-        let split_set = g.find_split_set();
+        let split_set = g.find_split_set(1);
         assert_eq!(split_set.len(),2);
     }
 
@@ -2498,13 +2572,13 @@ mod tests {
         let g = Digraph::read_graph(gr);
         assert!(g.is_ok());
         let g = g.unwrap();
-        let res = g.find_split_set_by_edge_contraction();
+        let res = g.find_split_set_by_edge_contraction(1);
         assert!(res.is_none());
         let gr = Cursor::new("7 10 0\n2\n3 4\n1 4\n2 5\n6\n4 7\n5\n");
         let g = Digraph::read_graph(gr);
         assert!(g.is_ok());
         let g = g.unwrap();
-        let res = g.find_split_set_by_edge_contraction();
+        let res = g.find_split_set_by_edge_contraction(1);
         assert!(res.is_some());
         let (split_set, amount) = res.unwrap();
         assert_eq!(split_set.len(), 1);

@@ -20,9 +20,11 @@ pub enum Rule {
     LossyClique(usize),
     /// Parameter specifies the maximal size of the cycles.
     LossyCycle(usize),
-    LossyCut,
     AdvLossyCut,
-    LossyCutVariation,
+    /// Parameter specifies how many nodes are tried for cut vertices in each step.
+    LossyCut(usize),
+    /// Parameter specifies how many nodes are tried for cut vertices in each step.
+    LossyCutVariation(usize),
     /// Parameter specifies the amount of times each node can be in one of the cycles.
     LossyLower(usize),
     /// Parameter specifies the maximal amount of incident node disjunct cycles of each contracted
@@ -1184,9 +1186,13 @@ impl DFVSInstance {
     /// strongly connected components.
     /// The approximation factor of this rule is upper bounded by 2.
     ///
+    /// # Arguments
+    ///
+    /// * `cut_size` - The amount of cut vertices tried in each step.
+    ///
     /// TODO: record quality
-    pub fn apply_lossy_cut_rule(&mut self) -> bool {
-        let cut_nodes = self.graph.find_split_set();
+    pub fn apply_lossy_cut_rule(&mut self, cut_size: usize) -> bool {
+        let cut_nodes = self.graph.find_split_set(cut_size);
         if cut_nodes.len() >= 1 {
             self.add_all_to_solution(&cut_nodes).expect("all nodes in `cut_nodes` exist");
             return true
@@ -1212,10 +1218,16 @@ impl DFVSInstance {
     /// strongly connected components.
     /// The approximation factor of this rule is unknown (TODO).
     ///
+    /// # Arguments
+    ///
+    /// * `cut_size` - The amount of cut vertices tried in each step.
+    ///
     /// Returns the amount of cut nodes and the amount of resulting sccs or `None` if the rule
     /// could not be applied.
-    pub fn apply_lossy_cut_rule_variation(&mut self) -> Option<(usize, usize)> {
-        if let Some((cut_nodes,scc)) = self.graph.find_split_set_by_edge_contraction() {
+    ///
+    /// TODO: record quality
+    pub fn apply_lossy_cut_rule_variation(&mut self, cut_size: usize) -> Option<(usize, usize)> {
+        if let Some((cut_nodes,scc)) = self.graph.find_split_set_by_edge_contraction(cut_size) {
             self.add_all_to_solution(&cut_nodes).expect("all nodes in `cut_nodes` exist");
             return Some((cut_nodes.len(), scc))
         }
