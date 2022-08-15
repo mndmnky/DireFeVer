@@ -21,6 +21,7 @@ pub enum Rule {
     /// Parameter specifies the maximal size of the cycles.
     LossyCycle(usize),
     LossyCut,
+    AdvLossyCut,
     /// Parameter specifies the amount of times each node can be in one of the cycles.
     LossyLower(usize),
     /// Parameter specifies the maximal amount of incident node disjunct cycles of each contracted
@@ -1194,6 +1195,20 @@ impl DFVSInstance {
         false
     }
 
+    /// Applies a advanced lossy reduction rule that adds nodes to the solution that split the graph into
+    /// strongly connected components.
+    /// The approximation factor of this rule is unknown (TODO).
+    ///
+    /// TODO: record quality
+    pub fn apply_lossy_adv_cut_rule(&mut self) -> bool {
+        let cut_nodes = self.graph.find_split_set_adv();
+        if cut_nodes.len() >= 1 {
+            self.add_all_to_solution(&cut_nodes).expect("all nodes in `cut_nodes` exist");
+            return true
+        }
+        false
+    }
+
     /// Applies a lossy reduction rule where node disjoint transtive edge structures of the form (a,b) (a,c)
     /// (c,b) of edges not in PIE are merged to one node. This is a Type A reduction rule with an
     /// approximation factor of 3.
@@ -1203,7 +1218,7 @@ impl DFVSInstance {
     pub fn apply_lossy_merge_rule(&mut self) -> bool {
         let transtive_structs = self.graph.find_disjoint_transitive_structures();
         for tst in &transtive_structs {
-            self.big_merge(tst.0, &vec![tst.1, tst.2]);
+            self.big_merge(tst.0, &vec![tst.1, tst.2]).expect("structure exists");
         }
         return transtive_structs.len() > 0
     }

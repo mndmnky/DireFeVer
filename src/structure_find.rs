@@ -539,6 +539,54 @@ impl Digraph{
         None
     }
 
+    /// Reduces the graph to its cycles, by applying the simple rule that removes source and sinks,
+    /// and splits the graph into strongly connected components, while also allowing single nodes
+    /// with loops.
+    ///
+    /// Returns true if there still exist cycles and false otherwise.
+    pub fn reduce_to_sccs_allow_loops(&mut self) -> Option<Vec<FxHashSet<usize>>> {
+        let mut changed = true;
+        while changed {
+            changed = false;
+            let nodes = self.nodes().collect::<Vec<usize>>();
+            for node in nodes {
+                // Remove source and sinks:
+                if self.in_degree(node).expect("`node` is in graph.nodes()") == 0 || self.out_degree(node).expect("`node` is in graph.nodes()") == 0 {
+                    self.remove_node(node);
+                    changed = true;
+                }
+            }
+        }
+        if self.num_nodes() > 0 {
+            // Split into strongly connected components:
+            let sccs = self.find_strongly_connected_components_iter();
+            let matter_sccs: Vec<FxHashSet<usize>> = sccs.into_iter()
+                .filter(|scc| {
+                    if scc.len() == 1 {
+                        let elem = scc.iter().next().expect("`scc` holds one element");
+                        if self.has_loop(*elem) {
+                            true
+                        } else {
+                            self.remove_node(*elem);
+                            false
+                        }
+                    } else {
+                        true
+                    }
+                }).collect();
+            for i in 0..matter_sccs.len() {
+                for j in (i+1)..matter_sccs.len(){
+                    let edges_between: Vec<_> = self.edges_between(&matter_sccs[i], &matter_sccs[j]).collect();
+                    if !edges_between.is_empty() {
+                        self.remove_edges(edges_between);
+                    }
+                }
+            }
+            return Some(matter_sccs)
+        }
+        None
+    }
+
     /// Checks if `self` contains a cycle.
     pub fn has_cycle(&self) -> bool {
         let mut graph_clone = self.clone();

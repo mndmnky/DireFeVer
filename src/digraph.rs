@@ -6,6 +6,7 @@ use std::io::prelude::*;
 use std::io;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::cmp::min;
+use std::ops::AddAssign;
 use crate::cust_errors::{ImportError, ProcessingError};
 use crate::other_ds::NodeSet;
 use fxhash::{FxHashMap, FxHashSet};
@@ -1037,6 +1038,15 @@ impl Digraph {
         num_petals
     }
 
+    /// Checks if `node` has a loop.
+    ///
+    /// # Panics
+    /// Panics if `node` does not exist.
+    pub fn has_loop(&self, node: usize) -> bool {
+        assert!(self.in_list[node].is_some());
+        self.in_list[node].as_ref().expect("is some").contains(&node)
+    }
+
     /// Finds a set of n nodes, such that their removal would split the graph into at least n+1
     /// strongly connected components.
     pub fn find_split_set(&self) -> FxHashSet<usize> {
@@ -1045,6 +1055,20 @@ impl Digraph {
         let mut cut_vertices: FxHashSet<usize> = FxHashSet::default();
         for mut sub in subs {
             if let Some(cut_vs) = sub.split_scc_recursively() {
+                cut_vertices.extend(cut_vs.into_iter());
+            }
+        }
+        return cut_vertices;
+    }
+
+    /// Finds a set of n nodes, such that their removal would split the graph into strongly connected
+    /// components.
+    pub fn find_split_set_adv(&self) -> FxHashSet<usize> {
+        // get all sccs 
+        let subs = self.split_into_connected_components_alt();
+        let mut cut_vertices: FxHashSet<usize> = FxHashSet::default();
+        for mut sub in subs {
+            if let Some(cut_vs) = sub.split_scc_adv() {
                 cut_vertices.extend(cut_vs.into_iter());
             }
         }
@@ -1078,6 +1102,66 @@ impl Digraph {
                     return Some(cut_vertices);
                 }
             }
+        }
+        None
+    }
+
+    /// Looks for a node that splits `self` into two or more strongly connected components and
+    /// repeats recursively until no more node can be found. Returns the set of cut nodes, or
+    /// `None` if none could have been found.
+    ///
+    /// Allows for single nodes sccs if they have a loop.
+    fn split_scc_recursively_allow_loops(&mut self, min_split: usize, running_count: &mut usize) -> Option<FxHashSet<usize>> {
+        let mut nodes: Vec<usize> = self.nodes().collect();
+        nodes.sort_unstable_by_key(|n| self.degree(*n));
+        while !nodes.is_empty() {
+            let tn = nodes.pop().expect("`nodes` is not empty");
+            let mut clone = self.clone();
+            clone.remove_node(tn);
+            if let Some(sccs) = clone.reduce_to_sccs_allow_loops() {
+                let mut cut_vertices: FxHashSet<usize> = vec![tn].into_iter().collect();
+                if sccs.len() > min_split {
+                    let subs = clone.split_into_connected_components_alt();
+                    running_count.add_assign(sccs.len());
+                    for mut sub in subs {
+                        if let Some(cut_vs) = sub.split_scc_recursively_allow_loops(min_split, running_count){
+                            cut_vertices.extend(cut_vs.into_iter());
+                        }
+                    }
+                    return Some(cut_vertices);
+                }
+            }
+        }
+        None
+    }
+
+    /// Tries to split a graph into sccs with the help of `self.split_scc_recursively()`. If non
+    /// cut vertices could been found, merge as much node disjoint 4 cycles as we can found into
+    /// nodes, and try to split then.
+    fn split_scc_adv(&mut self) -> Option<FxHashSet<usize>> {
+        // find cuts as in the old version
+        if let Some(cut_vs) = self.split_scc_recursively() {
+            return Some(cut_vs);
+        }
+        // if none where found:
+        // find indipendent cycles of size 4 
+        let cycles = self.find_disjoint_cycles_of_at_most_size(4);
+        let pairs = cycles.into_iter().map(|vec4| (vec4[0], vec4)).collect::<HashMap<usize, Vec<usize>>>();
+        for (rep, cycle) in &pairs {
+            // merge with loops
+            self.big_merge_allow_loops(*rep, cycle[1..cycle.len()].into()).expect("all nodes in the cycles exist");
+        }
+        // find cuts 
+        let mut scc_count = 0;
+        let mut final_cuts = FxHashSet::default();
+        if let Some(cut_vs) = self.split_scc_recursively_allow_loops(4, &mut scc_count) {
+            for cut_v in cut_vs {
+                if let Some(cycle) = pairs.get(&cut_v) {
+                    final_cuts.extend(cycle.into_iter());
+                }
+            }
+            eprintln!("ratio (cut_vs:sccs) {}:{}",final_cuts.len(), scc_count);
+            return Some(final_cuts)
         }
         None
     }
@@ -1410,6 +1494,31 @@ impl Digraph {
             }
         }
         self.remove_edge(&(into, into));
+        Ok((all_ins, all_outs))
+    }
+
+    /// Merges a list of nodes into another node. Allows loops.
+    /// Returns the lists of old incoming and old outgoing neighbors. 
+    /// Throws an error if any of the given nodes are not in `self`.
+    pub fn big_merge_allow_loops(&mut self, into: usize, from: Vec<usize>) -> Result<(Vec<FxHashSet<usize>>, Vec<FxHashSet<usize>>), ProcessingError> {
+        let mut all_outs = Vec::new();
+        let mut all_ins = Vec::new();
+        if let Some(ins) = self.in_neighbors(into) {
+            all_ins.push(ins.clone());
+            all_outs.push(self.out_neighbors(into).as_ref().expect("into exists").clone());
+        } else {
+            return Err(ProcessingError::GraphError("Some node could not be removed.".to_owned()));
+        }
+        for f in from {
+            if let Some((ins, outs)) = self.remove_node(f) {
+                self.add_edges(ins.iter().map(|inc| (*inc, into)));
+                self.add_edges(outs.iter().map(|outg| (into, *outg)));
+                all_ins.push(ins);
+                all_outs.push(outs);
+            } else {
+                return Err(ProcessingError::GraphError("Some node could not be removed.".to_owned()));
+            }
+        }
         Ok((all_ins, all_outs))
     }
 

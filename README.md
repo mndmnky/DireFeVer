@@ -193,10 +193,16 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Lossy merge rule (with supporting functions and DFVSInstance support)
 * Binaries for experiments
 
+### 1.9.1 
+* Find indie cycles in BFS fashion instead.
+* Added an advanced cut rule.
+
 ## Todo
 
 ### 1.9.X
 * working tests for both indie cycle rules
+* Working test for adv cut rule 
+* Quality check/guarentee for adv cut rule
 
 ### Very important but lots of work 
 * Split sccs in while exhaustively applying the rules!

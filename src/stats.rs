@@ -157,6 +157,24 @@ impl DFVSInstance {
         rs
     }
 
+    /// Applies the adv lossy cut rule once on the instance and records the running time and the
+    /// kill count.
+    pub fn apply_lossy_adv_cut_once(&mut self) -> RuleStats {
+        let mut rs = RuleStats::new(Rule::AdvLossyCut);
+        let nodes_before: u64 = self.graph.num_nodes() as u64;
+        let edges_before: i64 = self.graph.num_edges() as i64;
+        let start_time = Instant::now();
+        if self.apply_lossy_adv_cut_rule() {
+            self.reset_upper();
+        }
+        rs.add(
+            nodes_before - self.graph.num_nodes() as u64,
+            edges_before - self.graph.num_edges() as i64,
+            start_time.elapsed().as_millis(),
+        );
+        rs
+    }
+
     /// Applies the lossy indie cycle rule once on the instance and records the running time and the
     /// kill count.
     pub fn apply_lossy_indie_cycle_rule_once(&mut self) -> RuleStats {

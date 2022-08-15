@@ -1,10 +1,16 @@
 //!
 //! This binary is only meant for experiments.
 //! For each input graph, several output files are created:
-//! 1. A csv containing statistics of the essential and the lossy1 rule and the resulting kernel.
-//! 2. A csv containing statistics of the essential, the lossy1 rule and a single application of the
-//! lossy2 rule with complete exact rules afterwards, and the resulting kernel.
-//! 3. 2. with one more time lossy1 and all the simple rules.
+//! 1. A csv containing statistics of the essential, the lossy clique and the lossy cycle rule and the resulting kernel for each input graph.
+//! 2. A csv containing statistics of all the rules in step 1. and a single application of the
+//!    lossy cut rule with complete exact rules afterwards, and the resulting kernel for each
+//!    kernel from 1. that could not have been completely solved.
+//! 3. Same as 2. but using the lossy indie cycle instead of the lossy cut rule
+//! 4. Same as 2. but using the lossy semi indie cycle instead of the lossy cut rule
+//! 5. With the basis of 2., 3. or 4. we apply the lossy contraction rule once with all exact rules
+//!    afterwards.
+//! 6. With the basis of 2., 3. or 4. we apply the lossy merge rule once with all exact rules
+//!    afterwards.
 
 use std::error;
 use std::time::{Duration,Instant};
@@ -73,14 +79,21 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     // Rule priority sets
     let priorities_org = vec![
         vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal],
-        vec![Rule::SimpleRules, Rule::LossyClique(1), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
+        vec![Rule::SimpleRules, Rule::LossyClique(1), Rule::LossyCycle(3) Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
     ];
+
+    // TODO: from here
 
     // Initialize output files
     let mut out_files = vec![
-        File::create(format!("{}/sim_rules_lossy1.csv",dest))?,
-        File::create(format!("{}/sim_rules_lossy_allr.csv",dest))?,
-        File::create(format!("{}/sim_rules_lossy_allr_r2.csv",dest))?,
+        File::create(format!("{}/type_c_lossy.csv",dest))?,
+        File::create(format!("{}/cut_lossy.csv",dest))?,
+        File::create(format!("{}/indie_lossy.csv",dest))?,
+        File::create(format!("{}/semi_indie_lossy.csv",dest))?,
+        File::create(format!("{}/cut_lossy.csv",dest))?,
+        File::create(format!("{}/indie_lossy_ffdsf.csv",dest))?,
+        File::create(format!("{}/semi_indie_lossy.csv",dest))?,
+        File::create(format!("{}/cut_lossy.csv",dest))?,
     ];
     writeln!(&mut out_files[0], "name, nk, mk, sk, uk,\
              t_st, n_st, m_st,\

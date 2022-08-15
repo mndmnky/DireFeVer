@@ -75,6 +75,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     // Initialize output files
     let mut out_files = vec![
         File::create(format!("{}/lossy_cut_rule.csv",dest))?,
+        File::create(format!("{}/lossy_adv_cut_rule.csv",dest))?,
         File::create(format!("{}/lossy_indie_rules.csv",dest))?,
         File::create(format!("{}/lossy_semi_indie_rules.csv",dest))?,
     ];
@@ -91,7 +92,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_domino, n_domino, m_domino,\
              t_ap, n_ap, m_ap")?;
     writeln!(&mut out_files[1], "name, nk, mk, sk, uk,\
-             t_ldc, n_ldc, m_ldc, maxoff_ldc,\
+             t_lacut, n_lacut, m_lacut, maxoff_lacut,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
              t_tn, n_tn, m_tn,\
@@ -102,6 +103,17 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_domino, n_domino, m_domino,\
              t_ap, n_ap, m_ap")?;
     writeln!(&mut out_files[2], "name, nk, mk, sk, uk,\
+             t_ldc, n_ldc, m_ldc, maxoff_ldc,\
+             t_st, n_st, m_st,\
+             t_ln, n_ln, m_ln,\
+             t_tn, n_tn, m_tn,\
+             t_dome, n_dome, m_dome,\
+             t_scc, n_scc, m_scc,\
+             t_cliq, n_cliq, m_cliq,\
+             t_core, n_core, m_core,\
+             t_domino, n_domino, m_domino,\
+             t_ap, n_ap, m_ap")?;
+    writeln!(&mut out_files[3], "name, nk, mk, sk, uk,\
              t_lsdc, n_lsdc, m_lsdc, maxoff_lsdc,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
@@ -163,6 +175,29 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             
             let mut dfvsi_clone = dfvsi.clone();
             let cut_stats = dfvsi_clone.apply_lossy_cut_once();
+            match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
+                Ok(rule_stats) => {
+                    kernels.push(dfvsi_clone.clone());
+                    // Merge rules:
+                    let mut allrs = vec![cut_stats];
+                    allrs.extend(rule_stats);
+                    rules.push(allrs);
+                    dfvsi.compute_and_set_fast_upper(true);
+                    let upper = dfvsi.upper_bound.expect("was set");
+                    uppers.push(upper);
+                    // eprintln!("Done {:?}",n1);
+                    // done_sender.send(1)?;
+                    // return Ok(Some((kernels, rules, uppers)));
+                },
+                Err(_) => {
+                    eprintln!("Interrupted {:?}",n1);
+                    done_sender.send(1)?;
+                    return Ok(None);
+                },
+            };
+
+            let mut dfvsi_clone = dfvsi.clone();
+            let cut_stats = dfvsi_clone.apply_lossy_adv_cut_once();
             match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
                 Ok(rule_stats) => {
                     kernels.push(dfvsi_clone.clone());
@@ -320,8 +355,8 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 fn write_stuff(
     dest: &str, g_name: &OsString, left_overs: &Vec<DFVSInstance>, heurs: &Vec<usize>, 
     out_files: &mut Vec<File>, rule_set: &Vec<Vec<RuleStats>>) -> Result<(), Box<dyn error::Error>> {
-    for i in 0..3 {
-        if left_overs.len() <= i {
+    for i in 0..4 {
+        if left_overs.len() > i {
             left_overs[i].graph.write_graph(File::create(format!("{}/{:?}_lb{}k",dest,g_name,i))?)?;
             let mut line = String::new();
             line.push_str(&format!("{:?}, {}, {}, {}, {}, ", g_name, left_overs[i].graph.num_nodes(), left_overs[i].graph.num_edges(), left_overs[i].solution.len(), heurs[i]));
@@ -329,6 +364,7 @@ fn write_stuff(
                 let rule = &rule_set[i][r];
                 if r < rule_set[i].len()-1 {
                     if rule.rule == Rule::LossyCut || 
+                        rule.rule == Rule::AdvLossyCut || 
                         rule.rule == Rule::LossyLower(1) ||
                         rule.rule == Rule::LossyLower(2) {
                         line.push_str(&format!("{}, {}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
@@ -337,6 +373,7 @@ fn write_stuff(
                     }
                 } else {
                     if rule.rule == Rule::LossyCut || 
+                        rule.rule == Rule::AdvLossyCut || 
                         rule.rule == Rule::LossyLower(1) ||
                         rule.rule == Rule::LossyLower(2) {
                         line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
