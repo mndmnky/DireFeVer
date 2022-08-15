@@ -22,6 +22,7 @@ pub enum Rule {
     LossyCycle(usize),
     LossyCut,
     AdvLossyCut,
+    LossyCutVariation,
     /// Parameter specifies the amount of times each node can be in one of the cycles.
     LossyLower(usize),
     /// Parameter specifies the maximal amount of incident node disjunct cycles of each contracted
@@ -1205,6 +1206,20 @@ impl DFVSInstance {
             return true
         }
         false
+    }
+
+    /// Applies a advanced lossy reduction rule that adds nodes to the solution that split the graph into
+    /// strongly connected components.
+    /// The approximation factor of this rule is unknown (TODO).
+    ///
+    /// Returns the amount of cut nodes and the amount of resulting sccs or `None` if the rule
+    /// could not be applied.
+    pub fn apply_lossy_cut_rule_variation(&mut self) -> Option<(usize, usize)> {
+        if let Some((cut_nodes,scc)) = self.graph.find_split_set_by_edge_contraction() {
+            self.add_all_to_solution(&cut_nodes).expect("all nodes in `cut_nodes` exist");
+            return Some((cut_nodes.len(), scc))
+        }
+        None
     }
 
     /// Applies a lossy reduction rule where node disjoint transtive edge structures of the form (a,b) (a,c)

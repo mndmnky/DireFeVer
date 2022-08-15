@@ -193,6 +193,25 @@ impl DFVSInstance {
         rs
     }
 
+    /// Applies a variaton of the lossy cut rule once on the instance and records the running time and the
+    /// kill count.
+    pub fn apply_lossy_cut_variation_once(&mut self) -> RuleStats {
+        let mut rs = RuleStats::new(Rule::LossyCutVariation);
+        let nodes_before: u64 = self.graph.num_nodes() as u64;
+        let edges_before: i64 = self.graph.num_edges() as i64;
+        let start_time = Instant::now();
+        if let Some(quality) = self.apply_lossy_cut_rule_variation() {
+            eprintln!("Cut rule quality (cut nodes:sccs) {}:{}", quality.0, quality.1);
+            self.reset_upper();
+        }
+        rs.add(
+            nodes_before - self.graph.num_nodes() as u64,
+            edges_before - self.graph.num_edges() as i64,
+            start_time.elapsed().as_millis(),
+        );
+        rs
+    }
+
     /// Applies the lossy indie cycle rule once on the instance and records the running time and the
     /// kill count.
     pub fn apply_lossy_indie_cycle_rule_once(&mut self) -> RuleStats {

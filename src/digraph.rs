@@ -122,6 +122,17 @@ impl Digraph {
         }
     }
 
+    /// Returns a hashset of the neighborhood of `node` that are also in `set` if `node` was 
+    /// not already deleted.
+    pub fn neighbors_in(&self, node: usize, set: &FxHashSet<usize>) -> Option<FxHashSet<usize>> {
+        if let Some(in_set) = &self.in_neighbors_in(node, set) {
+            let out_set = &self.out_neighbors_in(node, set).expect("`in_list` exists");
+            Some(out_set.union(in_set).copied().collect::<FxHashSet<usize>>())
+        } else {
+            None
+        }
+    }
+
     /// Returns a hashset of the out neighborhood of `node` that are also in `set` if `node` was 
     /// not already deleted.
     pub fn out_neighbors_in(&self, node: usize, set: &FxHashSet<usize>) -> Option<FxHashSet<usize>> {
@@ -575,6 +586,38 @@ impl Digraph {
             }
         }
         cur_max_node
+    }
+
+    /// Returns the node with the lowest degree, or None if no node exists. 
+    ///
+    /// # Panics
+    /// Panics if `self` is broken.
+    pub fn get_min_degree_node(&self) -> Option<usize> {
+        let mut cur_min_degree: Option<usize> = None;
+        let mut cur_min_node: Option<usize> = None;
+        for node in self.nodes() {
+            let degree = self.degree(node).expect("This node exists, since it is in .nodes()");
+            if cur_min_degree.is_none() || degree < cur_min_degree.expect("is not none") {
+                cur_min_degree = Some(degree);
+                cur_min_node = Some(node);
+            }
+        }
+        cur_min_node
+    }
+
+    /// Returns the node with the lowest degree, or None if no node in `set` exists. 
+    pub fn get_min_degree_node_within(&self, set: &FxHashSet<usize>) -> Option<usize> {
+        let mut cur_min_degree: Option<usize> = None;
+        let mut cur_min_node: Option<usize> = None;
+        for node in set {
+            if let Some(degree) = self.degree(*node) {
+                if cur_min_degree.is_none() || degree < cur_min_degree.expect("is not none") {
+                    cur_min_degree = Some(degree);
+                    cur_min_node = Some(*node);
+                }
+            }
+        }
+        cur_min_node
     }
 
     //pub fn find_reducible_double_cycles(&self) -> HashSet<Vec<usize>> {
@@ -1075,6 +1118,64 @@ impl Digraph {
         return cut_vertices;
     }
 
+    /// TODO: Repeat and compare different levels.
+    /// Finds a set of n nodes, such that their removal would split the graph into strongly connected
+    /// components.
+    pub fn find_split_set_by_edge_contraction(&self) -> Option<(FxHashSet<usize>, usize)> {
+        let mut gc = self.clone();
+        let mut split_set = FxHashSet::default();
+        let mut scc_count = 0;
+        loop {
+            if gc.num_edges() == 0 {
+                break
+            }
+            let size = gc.num_nodes();
+            let mut reps: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
+            // Contract n/2 edges
+            let mut gc_nodes: FxHashSet<usize> = gc.nodes().collect();
+            while gc_nodes.len() > (size as f64 / 2.0).floor() as usize {
+                // Find edge to contract 
+                let mut low = gc.get_min_degree_node_within(&gc_nodes).expect("`gc` still has nodes");
+                if let Some(mut lowest) = gc.get_min_degree_node_within(&gc.neighbors_in(low, &gc_nodes).expect("`low` exists.")) {
+                    if !gc.has_edge((low, lowest)) {
+                        let swap = low;
+                        low = lowest;
+                        lowest = swap;
+                    }
+                    let ev_lowest_node = if let Some(lowest_nodes) = reps.get(&lowest) {
+                        Some(lowest_nodes.clone())
+                    } else {
+                        None
+                    };
+                    let low_rep = reps.entry(low).or_insert(Vec::new());
+                    low_rep.push(lowest);
+                    if let Some(lowest_reps) = ev_lowest_node {
+                        low_rep.extend(lowest_reps.into_iter());
+                    }
+                    gc.contract_edge((low, lowest));
+                    gc_nodes.remove(&low);
+                    gc_nodes.remove(&lowest);
+                } else {
+                    break
+                }
+            }
+            // Find bridges between sccs
+            if let Some(cuts) = gc.split_scc_recursively_on_contracted(&reps, &mut scc_count) {
+                for cut in cuts {
+                    split_set.insert(cut);
+                    if reps.contains_key(&cut) {
+                        split_set.extend(reps.get(&cut).expect("contains key"));
+                    }
+                }
+                break
+            }
+        }
+        if scc_count > 1 {
+            return Some((split_set, scc_count))
+        }
+        None 
+    }
+
 }
 
 // Dynamic operations.
@@ -1099,6 +1200,42 @@ impl Digraph {
                             cut_vertices.extend(cut_vs.into_iter());
                         }
                     }
+                    return Some(cut_vertices);
+                }
+            }
+        }
+        None
+    }
+
+    /// Looks for a node that splits `self` into two or more strongly connected components and
+    /// repeats recursively until no more node can be found. Returns the set of cut nodes, or
+    /// `None` if none could have been found.
+    fn split_scc_recursively_on_contracted(&mut self, contraction_map: &FxHashMap<usize, Vec<usize>>, scc_amn: &mut usize) -> Option<FxHashSet<usize>> {
+        let mut nodes: Vec<usize> = self.nodes().collect();
+        nodes.sort_unstable_by_key(|n| self.degree(*n));
+        nodes.reverse();
+        nodes.sort_by_key(|n| {
+            if contraction_map.contains_key(n) {
+                contraction_map.get(n).expect("contained").len()
+            } else {
+                1
+            }
+        });
+        nodes.reverse();
+        while !nodes.is_empty() {
+            let tn = nodes.pop().expect("`nodes` is not empty");
+            let mut clone = self.clone();
+            clone.remove_node(tn);
+            if let Some(sccs) = clone.reduce_to_sccs_allow_contracted(contraction_map) {
+                let mut cut_vertices: FxHashSet<usize> = vec![tn].into_iter().collect();
+                if sccs.len() > 1 {
+                    let subs = clone.split_into_connected_components_alt();
+                    for mut sub in subs {
+                        if let Some(cut_vs) = sub.split_scc_recursively_on_contracted(contraction_map, scc_amn){
+                            cut_vertices.extend(cut_vs.into_iter());
+                        }
+                    }
+                    scc_amn.add_assign(sccs.len());
                     return Some(cut_vertices);
                 }
             }
@@ -1548,6 +1685,29 @@ impl Digraph {
             return Some((ins_c, outs_c, doubles))
         }
         None
+    }
+
+    /// Contracts `edge` into its source.
+    ///
+    /// # Panics 
+    /// Panics if `edge` does not exist.
+    pub fn contract_edge(&mut self, edge: (usize, usize))  {
+        assert!(self.has_edge(edge));
+        let (ins, outs) = self.remove_node(edge.1).expect("`edge` exists");
+        self.add_edges(ins.into_iter().filter_map(|incoming| {
+            if incoming == edge.0 {
+                None
+            } else {
+                Some((incoming,edge.0))
+            }
+        }));
+        self.add_edges(outs.into_iter().filter_map(|outgoing| {
+            if outgoing == edge.0 {
+                None
+            } else {
+                Some((edge.0,outgoing))
+            }
+        }));
     }
     
 }
@@ -2318,6 +2478,37 @@ mod tests {
         let g = g.unwrap();
         let split_set = g.find_split_set();
         assert_eq!(split_set.len(),2);
+    }
+
+    #[test]
+    fn find_split_set_adv_test() {
+        let gr = Cursor::new("14 22 0\n3 8\n1\n2 4\n2 6\n4 6\n\
+                             7\n5\n9\n10 11\n8\n10 13\n11 13\n\
+                             14\n7 12\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let split_set = g.find_split_set_adv();
+        assert_eq!(split_set.len(),2);
+    }
+
+    #[test]
+    fn find_split_set_by_edge_contraction_test() {
+        let gr = Cursor::new("5 6 0\n2\n3\n1 4\n5\n3\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let res = g.find_split_set_by_edge_contraction();
+        assert!(res.is_none());
+        let gr = Cursor::new("7 10 0\n2\n3 4\n1 4\n2 5\n6\n4 7\n5\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let res = g.find_split_set_by_edge_contraction();
+        assert!(res.is_some());
+        let (split_set, amount) = res.unwrap();
+        assert_eq!(split_set.len(), 1);
+        assert_eq!(amount, 2);
     }
 
 }

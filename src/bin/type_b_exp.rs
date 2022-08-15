@@ -92,7 +92,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_domino, n_domino, m_domino,\
              t_qap, n_qap, m_qap")?;
     writeln!(&mut out_files[1], "name, nk, mk, sk, uk,\
-             t_lacut, n_lacut, m_lacut, maxoff_lacut,\
+             t_lcutv, n_lcutv, m_lcutv, maxoff_lcutv,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
              t_tn, n_tn, m_tn,\
@@ -197,7 +197,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             };
 
             let mut dfvsi_clone = dfvsi.clone();
-            let cut_stats = dfvsi_clone.apply_lossy_adv_cut_once();
+            let cut_stats = dfvsi_clone.apply_lossy_cut_variation_once();
             match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
                 Ok(rule_stats) => {
                     kernels.push(dfvsi_clone.clone());
@@ -364,7 +364,7 @@ fn write_stuff(
                 let rule = &rule_set[i][r];
                 if r < rule_set[i].len()-1 {
                     if rule.rule == Rule::LossyCut || 
-                        rule.rule == Rule::AdvLossyCut || 
+                        rule.rule == Rule::LossyCutVariation || 
                         rule.rule == Rule::LossyLower(1) ||
                         rule.rule == Rule::LossyLower(2) {
                         line.push_str(&format!("{}, {}, {}, {}, ",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
@@ -373,7 +373,7 @@ fn write_stuff(
                     }
                 } else {
                     if rule.rule == Rule::LossyCut || 
-                        rule.rule == Rule::AdvLossyCut || 
+                        rule.rule == Rule::LossyCutVariation || 
                         rule.rule == Rule::LossyLower(1) ||
                         rule.rule == Rule::LossyLower(2) {
                         line.push_str(&format!("{}, {}, {}, {}",rule.time_took, rule.reduced_nodes, rule.reduced_edges, rule.suc_apps));
