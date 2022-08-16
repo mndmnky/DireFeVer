@@ -138,11 +138,11 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_st, n_st, m_st,\
              t_qap, n_qap, m_qap")?;
 
-    writeln!(&mut out_files[8], "name, nk, mk, sk,\
+    writeln!(&mut out_files[9], "name, nk, mk, sk,\
              t_st, n_st, m_st,\
              t_p, n_p, m_p")?;
 
-    writeln!(&mut out_files[9], "name, nk, mk, sk,\
+    writeln!(&mut out_files[10], "name, nk, mk, sk,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
              t_tn, n_tn, m_tn,\
@@ -152,7 +152,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_scc, n_scc, m_scc,\
              t_ap, n_ap, m_ap")?;
 
-    writeln!(&mut out_files[10], "name, nk, mk, sk,\
+    writeln!(&mut out_files[11], "name, nk, mk, sk,\
              t_st, n_st, m_st,\
              t_ln, n_ln, m_ln,\
              t_tn, n_tn, m_tn,\
@@ -199,7 +199,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     }
 
     for (dfvsi_org, name) in instances {
-        for p in 0..11 {
+        for p in 0..12 {
             let (start_sender, start_receiver) = channel();
             let (interrupt_sender, interrupt_receiver) = channel();
             let (done_sender, done_receiver) = channel();
@@ -329,7 +329,7 @@ fn write_simple_stuff(
 fn write_simple_empty(
     g_name: &OsString, out_file: &mut File, go: usize) -> Result<(), Box<dyn error::Error>> {
     let mut line = String::new();
-    if go < 9 {
+    if go < 10 {
         line.push_str(&format!("{:?},,,,,,,,,", g_name));
     } else {
         line.push_str(&format!("{:?},,,,,,,,,,,,,,,,,,,,,,,,,,,", g_name));
