@@ -73,6 +73,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     // Rule priority sets
     let priorities_org = vec![
+        vec![Rule::SimpleRules],
         vec![Rule::SimpleRules, Rule::LinkNode],
         vec![Rule::SimpleRules, Rule::TwinNodes],
         vec![Rule::SimpleRules, Rule::Dome],
