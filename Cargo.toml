@@ -34,6 +34,10 @@ name = "typea"
 path = "src/bin/type_a_exp.rs"
 
 [[bin]]
+name = "exact_exp"
+path = "src/bin/exact_exp.rs"
+
+[[bin]]
 name = "test"
 path = "src/bin/test.rs"
 

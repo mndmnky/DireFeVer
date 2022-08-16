@@ -202,6 +202,7 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 ## Todo
 
 ### 1.9.X
+* Test param cut
 * Sub functions of the cut rule needs to be fixed (more efficient, remove redundant)
 * working tests for both indie cycle rules
 * Working test for adv cut rule 
@@ -221,7 +222,7 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * UDFVS solution as heuristic.
 * Poly kernel rules.
 
-# Still needed?
+### Still needed?
 * TEST `single versions`
 * Check if BST can be bounded further (current solution + current best lower bound > best solution -> return best solution).
 * Polish branch and reduce algorithm (can be contracted).
