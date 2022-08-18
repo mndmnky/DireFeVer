@@ -265,7 +265,7 @@ impl DFVSInstance {
                 match tr {
                     Err(Disconnected) => {
                         eprintln!("interrupted since disco");
-                        return Err(ProcessingError::OutOfTime);
+                        break 'outer
                     },
                     Ok(_) => {
                         eprintln!("interrupted since interrupt send");
@@ -288,7 +288,7 @@ impl DFVSInstance {
                         match tr {
                             Err(Disconnected) => {
                                 eprintln!("interrupted since disco");
-                                return Err(ProcessingError::OutOfTime);
+                                break 'outer
                             },
                             Ok(_) => {
                                 eprintln!("interrupted since interrupt send");
@@ -306,7 +306,7 @@ impl DFVSInstance {
                         match tr {
                             Err(Disconnected) => {
                                 eprintln!("interrupted since disco");
-                                return Err(ProcessingError::OutOfTime);
+                                break 'outer
                             },
                             Ok(_) => {
                                 eprintln!("interrupted since interrupt send");
@@ -334,7 +334,7 @@ impl DFVSInstance {
                             let tr = rec.try_recv();
                             match tr {
                                 Err(Disconnected) => {
-                                    eprintln!("interrupted since disco");
+                                    break 'outer
                                     return Err(ProcessingError::OutOfTime);
                                 },
                                 Ok(_) => {
@@ -366,7 +366,7 @@ impl DFVSInstance {
                             match tr {
                                 Err(Disconnected) => {
                                     eprintln!("interrupted since disco");
-                                    return Err(ProcessingError::OutOfTime);
+                                    break 'outer
                                 },
                                 Ok(_) => {
                                     eprintln!("interrupted since interrupt send");
@@ -397,7 +397,7 @@ impl DFVSInstance {
                             match tr {
                                 Err(Disconnected) => {
                                     eprintln!("interrupted since disco");
-                                    return Err(ProcessingError::OutOfTime);
+                                    break 'outer
                                 },
                                 Ok(_) => {
                                     eprintln!("interrupted since interrupt send");
@@ -428,7 +428,7 @@ impl DFVSInstance {
                             match tr {
                                 Err(Disconnected) => {
                                     eprintln!("interrupted since disco");
-                                    return Err(ProcessingError::OutOfTime);
+                                    break 'outer
                                 },
                                 Ok(_) => {
                                     eprintln!("interrupted since interrupt send");
@@ -487,7 +487,7 @@ impl DFVSInstance {
                             match tr {
                                 Err(Disconnected) => {
                                     eprintln!("interrupted since disco");
-                                    return Err(ProcessingError::OutOfTime);
+                                    break 'outer
                                 },
                                 Ok(_) => {
                                     eprintln!("interrupted since interrupt send");
@@ -521,7 +521,7 @@ impl DFVSInstance {
                             match tr {
                                 Err(Disconnected) => {
                                     eprintln!("interrupted since disco");
-                                    return Err(ProcessingError::OutOfTime);
+                                    break 'outer
                                 },
                                 Ok(_) => {
                                     eprintln!("interrupted since interrupt send");
@@ -555,7 +555,7 @@ impl DFVSInstance {
                             match tr {
                                 Err(Disconnected) => {
                                     eprintln!("interrupted since disco");
-                                    return Err(ProcessingError::OutOfTime);
+                                    break 'outer
                                 },
                                 Ok(_) => {
                                     eprintln!("interrupted since interrupt send");
@@ -589,7 +589,7 @@ impl DFVSInstance {
                             match tr {
                                 Err(Disconnected) => {
                                     eprintln!("interrupted since disco");
-                                    return Err(ProcessingError::OutOfTime);
+                                    break 'outer
                                 },
                                 Ok(_) => {
                                     eprintln!("interrupted since interrupt send");
