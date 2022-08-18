@@ -208,6 +208,9 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 * Working test for adv cut rule 
 * Quality check/guarantee for adv cut rule
 
+### Important 
+* SCC dont check pairs of sccs
+
 ### Very important but lots of work 
 * Split sccs in while exhaustively applying the rules!
 

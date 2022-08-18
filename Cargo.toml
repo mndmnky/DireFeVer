@@ -38,6 +38,14 @@ name = "exact_exp"
 path = "src/bin/exact_exp.rs"
 
 [[bin]]
+name = "all_exact_exp"
+path = "src/bin/all_exact_exp.rs"
+
+[[bin]]
+name = "instance_stats"
+path = "src/bin/init_stats.rs"
+
+[[bin]]
 name = "test"
 path = "src/bin/test.rs"
 
