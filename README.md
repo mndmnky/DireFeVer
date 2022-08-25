@@ -37,9 +37,13 @@ DireFeVer is a solver for the directed vertex feedback set problem. This library
 	* And the crown rule as described in [^fn8].
 
 * Lossy kernelization rules:
-	* One, that adds all nodes within strong cliques of size 1+`quality`. The size of an optimal solution of the resulting kernel can become at worst 1 + 1/`quality` times as large.
-	* A second one, which contracts nodes adjacent to at most `quality` petals. Each application of this rule can increase the solution by `quality`-1. If the rule is applied only once, on only cycle disjunct nodes, the size of an optimal solution of the resulting kernel can become at worst `quality` times as large. If other lossy rules follow this, however, the resulting solution can become `quality` times the approximation factor of the other rules as large as an optimal solution. This rule can be simplified by using nodes with a maximal incoming- or outgoing degree of `quality`. But this might miss some valid nodes.
-	* TODO describe the other lossy rules!
+	* The lossy clique rule: adds all nodes within strong cliques of size 1+`quality`. The size of an optimal solution of the resulting kernel can become at worst 1 + 1/`quality` times as large.
+	* The lossy contraction rule, which contracts nodes adjacent to at most `quality` petals. Each application of this rule can increase the solution by `quality`-1. If the rule is applied only once, on only cycle disjunct nodes, the size of an optimal solution of the resulting kernel can become at worst `quality` times as large. If other lossy rules follow this, however, the resulting solution can become `quality` times the approximation factor of the other rules as large as an optimal solution. This rule can be simplified by using nodes with a maximal incoming- or outgoing degree of `quality`. But this might miss some valid nodes.
+	* The lossy cycle rule, which finds cycles of size `quality` or smaller and adds all of its nodes to the solution (and removes the nodes afterwards). This has an approximation factor of `quality`.
+	* The lossy merge rule, which merges substructures of the form (a,b),(b,c),(a,c). This rule has an approximation factor of 3. 
+	* The lossy disjunct cycles rule, which computes a set of disjunct cycles and adds the node with the highest degree in each cycle to the solution. This has an approximation factor of 2.
+	* The lossy semi disjunct cycle rule, which computes a set of cycles `C`, so that every node is at most in `x` different cycles. Then adds |`C`|/`x` many nodes that together hit as many cycles in `C` as possible in a greedy fashion.  
+	* The lossy cut rule looks for a set of nodes `C` that cut the graph into `s` strongly connected components. Adding those to the solution has an approximation factor of 1 + |`C`|/s.
 	* These rules reset the current upper bound and current best solution. Or they should!
 
 ### Heuristics

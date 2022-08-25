@@ -1,6 +1,6 @@
 [package]
 name = "code"
-version = "1.9.1-testing"
+version = "1.9.1"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,39 +15,39 @@ path = "src/bin/exact.rs"
 
 [[bin]]
 name = "experiments"
-path = "src/bin/experiments.rs"
+path = "src/bin/experiments/experiments.rs"
 
 [[bin]]
 name = "experiments_v2"
-path = "src/bin/experiments_v2.rs"
+path = "src/bin/experiments/experiments_v2.rs"
 
 [[bin]]
 name = "typec"
-path = "src/bin/type_c_exp.rs"
+path = "src/bin/experiments/type_c_exp.rs"
 
 [[bin]]
 name = "typeb"
-path = "src/bin/type_b_exp.rs"
+path = "src/bin/experiments/type_b_exp.rs"
 
 [[bin]]
 name = "typea"
-path = "src/bin/type_a_exp.rs"
+path = "src/bin/experiments/type_a_exp.rs"
 
 [[bin]]
 name = "exact_exp"
-path = "src/bin/exact_exp.rs"
+path = "src/bin/experiments/exact_exp.rs"
 
 [[bin]]
 name = "all_exact_exp"
-path = "src/bin/all_exact_exp.rs"
+path = "src/bin/experiments/all_exact_exp.rs"
 
 [[bin]]
 name = "instance_stats"
-path = "src/bin/init_stats.rs"
+path = "src/bin/experiments/init_stats.rs"
 
 [[bin]]
 name = "test"
-path = "src/bin/test.rs"
+path = "src/bin/experiments/test.rs"
 
 [dependencies]
 itertools = "0.10.1"
