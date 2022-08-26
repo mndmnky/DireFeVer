@@ -1,3 +1,7 @@
+//!
+//! This module supports transformation from a `Digraph` into a Vertex Cover instance and the
+//! reading of a Vertex Cover solution.
+
 use duck_and_cover::vc_instance::VCInstance;
 use duck_and_cover::graph::DyUGraph;
 use crate::{digraph::Digraph, cust_errors::ImportError};

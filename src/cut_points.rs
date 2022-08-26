@@ -2,6 +2,11 @@
 //! This module implements different functions meant to find a set of nodes that cut the graph into
 //! multiple strongly connected components.
 
+use crate::digraph::Digraph;
+use fxhash::{FxHashSet, FxHashMap};
+use std::collections::HashMap;
+use std::ops::AddAssign;
+
 impl Digraph {
     
     /// Finds a set of n nodes, such that their removal would split the graph into at least n+1

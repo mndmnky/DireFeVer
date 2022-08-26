@@ -1,3 +1,7 @@
+//! 
+//! A module for simple validation of a dfvs solution S, by checking if the removal of each node in
+//! S results into a DAG.
+
 use crate::dfvs_instance::DFVSInstance;
 use fxhash::FxHashSet;
 

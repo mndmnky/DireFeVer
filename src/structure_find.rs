@@ -1,3 +1,6 @@
+//!
+//! A module to find substructures within a `Digraph`.
+
 use crate::digraph::Digraph;
 use std::collections::{VecDeque, HashSet, HashMap};
 use fxhash::{FxHashSet, FxHashMap};
@@ -20,7 +23,7 @@ impl Digraph{
             while clone_graph.has_node(node) {
                 if let Some(cycle) = clone_graph.smallest_simple_cycle(node) {
                     if cycle.is_empty() {
-                        clone_graph.remove_edge(&(node, node)); // In case there are still loops left (which shouldn't be).
+                        clone_graph.remove_edge(&(node, node)); // In case there are still loops left.
                     }
                     clone_graph.remove_nodes(cycle.clone());
                     cycles.push(cycle);
@@ -34,16 +37,10 @@ impl Digraph{
         None
     }
 
-    //pub fn find_reducible_double_cycles_node(&self, node: usize) -> Option<HashSet<Vec<usize>>> {
-    //    if !self.has_node(node) {
-    //        return None
-    //    }
-    //    let mut used = FxHashSet::new();
-    //    let mut visited = FxHashSet::new();
-    //    // Let nodes with st_deg == 2 and wk_deg == 0 be called link nodes
-    //}
-
     /// Finds the smallest simple cycle containing `node` if one exists. 
+    ///
+    /// Returns a `Vec` containing all nodes within the found cycle but `node` in reverse
+    /// direction.
     pub fn smallest_simple_cycle(&self, node: usize) -> Option<Vec<usize>> {
         let mut marked: NodeSet = vec![node].into_iter().collect();
         let mut predecessors: Vec<Option<usize>> = vec![None; self.num_reserved_nodes()];
@@ -75,7 +72,6 @@ impl Digraph{
         None
     }
 
-
     /// Finds a set of node disjoint cycles containing `node`. Tries to find cycles wih nodes of
     /// small degree first.
     ///
@@ -88,7 +84,7 @@ impl Digraph{
             while clone_graph.has_node(node) {
                 if let Some(cycle) = clone_graph.smallest_degree_simple_cycle_heuristic(node) {
                     if cycle.is_empty() {
-                        clone_graph.remove_edge(&(node, node)); // In case there are still loops left (which shouldn't be).
+                        clone_graph.remove_edge(&(node, node)); // In case there are still loops left.
                     }
                     clone_graph.remove_nodes(cycle.clone());
                     cycles.push(cycle);
@@ -103,6 +99,9 @@ impl Digraph{
     }
 
     /// Tries to find the simple cycle containining nodes with low degree and `node` if one exists. 
+    ///
+    /// Returns a `Vec` containing all nodes within the found cycle but `node` in reverse
+    /// direction.
     fn smallest_degree_simple_cycle_heuristic(&self, node: usize) -> Option<Vec<usize>> {
         let mut marked: NodeSet = vec![node].into_iter().collect();
         let mut predecessors: Vec<Option<usize>> = vec![None; self.num_reserved_nodes()];
@@ -140,8 +139,10 @@ impl Digraph{
 
     /// Finds semi node disjoint cycles in `self` so that no node is incident to more than
     /// `max_count` cycles.
+    #[deprecated(since = "1.9.1", note = "Better use `find_semi_disjoint_cycles_bfs()")]
     pub fn find_semi_disjoint_cycles(&self, max_count: usize) -> Vec<Vec<usize>> {
         let mut cycles = Vec::new();
+        // Counts the amount of found cycles each node is incident to.
         let mut node_cycle_counter: Vec<Option<usize>> = (0..self.num_reserved_nodes())
             .map(|node| {
                 if self.has_node(node) {
@@ -152,12 +153,14 @@ impl Digraph{
             }).collect();
         let mut graph_clone = self.clone();
         loop {
+            // Get a node with a minimal amount of found incident cycles if one exists:
             if let Some((next,amount)) = node_cycle_counter.iter().enumerate().filter(|(_,n)| n.is_some()).map(|(i,n)|(i,n.expect("is some"))).min_by_key(|(_,n)| *n) {
                 if amount >= max_count {
                     break;
                 }
                 if let Some(next_cycle) = graph_clone.find_semi_disjoint_cycle(next, max_count, &node_cycle_counter) {
-                    // remove each edge in cycle from graph_clone
+                    // remove each edge in `next_cycle` from `graph_clone` and adjusts the
+                    // `node_cycle_counter` vector.
                     let start = next_cycle[0];
                     let mut pref = start;
                     if node_cycle_counter[start].filter(|c| c<&(max_count-1)).is_some() {
@@ -190,15 +193,13 @@ impl Digraph{
         cycles
     }
 
-
-
     /// Finds a cycle in `self` containing `start_node` that uses only nodes that have been used less then `max_count`
     /// times.
     /// 
     /// Cycles are found with a DFS, visiting nodes that have been used less first.
     ///
     /// Returns a cycle containing `start_node` or `None` if no such cycle could have been found.
-    pub fn find_semi_disjoint_cycle(&mut self, start_node: usize, max_count: usize, node_cycle_counter: &Vec<Option<usize>>) 
+    fn find_semi_disjoint_cycle(&mut self, start_node: usize, max_count: usize, node_cycle_counter: &Vec<Option<usize>>) 
         -> Option<Vec<usize>> {
         let mut marked: NodeSet = NodeSet::new();
         let mut stack: Vec<usize> = Vec::new(); 
@@ -222,7 +223,6 @@ impl Digraph{
                             None
                         }).collect::<Vec<_>>();
                         outs.sort_by_key(|(count,_)| *count);
-                        //outs.reverse();
                         while !outs.is_empty() {
                             let neigh = outs.pop().expect("`outs` is not empty").1;
                             queue.push(Im::Itm(*neigh));
@@ -246,6 +246,7 @@ impl Digraph{
     /// `max_count` cycles.
     pub fn find_semi_disjoint_cycles_bfs(&self, max_count: usize) -> Vec<Vec<usize>> {
         let mut cycles = Vec::new();
+        // Counts the amount of found cycles each node is incident to.
         let mut node_cycle_counter: Vec<Option<usize>> = (0..self.num_reserved_nodes())
             .map(|node| {
                 if self.has_node(node) {
@@ -256,12 +257,14 @@ impl Digraph{
             }).collect();
         let mut graph_clone = self.clone();
         loop {
+            // Get a node with a minimal amount of found incident cycles if one exists:
             if let Some((next,amount)) = node_cycle_counter.iter().enumerate().filter(|(_,n)| n.is_some()).map(|(i,n)|(i,n.expect("is some"))).min_by_key(|(_,n)| *n) {
                 if amount >= max_count {
                     break;
                 }
                 if let Some(next_cycle) = graph_clone.find_semi_disjoint_cycle_bfs(next, max_count, &node_cycle_counter) {
-                    // remove each edge in cycle from graph_clone
+                    // remove each edge in `next_cycle` from `graph_clone` and adjusts the
+                    // `node_cycle_counter` vector.
                     let start = next_cycle[0];
                     let mut pref = start;
                     if node_cycle_counter[start].filter(|c| c<&(max_count-1)).is_some() {
@@ -321,12 +324,9 @@ impl Digraph{
                     }
                     None
                 });
-                //outs.sort_by_key(|(count,_)| *count);
-                //outs.reverse();
                 queue.extend(outs);
             } else {
                 if next == start_node {
-                    // TODO create cycle
                     let mut cycle = Vec::new();
                     cycle.push(pref);
                     let mut cur = pref;
@@ -403,7 +403,7 @@ impl Digraph{
         return None
     }
 
-    /// Greedily finds node disjoint transitive edge structures of the form (a,b) (a,c) (c,b).
+    /// Greedily finds node disjoint transitive edge structures containing three edges of the form (a,b), (a,c), (c,b) not in PIE.
     pub fn find_disjoint_transitive_structures(&self) -> Vec<(usize, usize, usize)> {
         let mut graph_clone = self.clone();
         let mut structs = Vec::new();
@@ -430,7 +430,7 @@ impl Digraph{
         structs
     }
 
-    /// Find a transitive edge structure ((a,b) (a,c) (c,b)) with edges not in PIE such that `edge`
+    /// Find a transitive edge structure ((a,b), (a,c), (c,b)) with edges not in PIE such that `edge`
     /// is part of that structure.
     fn find_transitive_structure_for_edge(&self, edge: (usize, usize)) -> Option<(usize, usize, usize)> {
         assert!(self.edge_exists(&edge));
@@ -487,7 +487,8 @@ impl Digraph{
             let nodes = self.nodes().collect::<Vec<usize>>();
             for node in nodes {
                 // Remove source and sinks:
-                if self.in_degree(node).expect("`node` is in graph.nodes()") == 0 || self.out_degree(node).expect("`node` is in graph.nodes()") == 0 {
+                if self.in_degree(node).expect("`node` is in graph.nodes()") == 0 ||
+                    self.out_degree(node).expect("`node` is in graph.nodes()") == 0 {
                     self.remove_node(node);
                     changed = true;
                 }
@@ -496,12 +497,10 @@ impl Digraph{
         false
     }
 
-    /// TODO fix doc (return)
-    /// TODO fix act return
     /// Reduces the graph to its cycles, by applying the simple rule that removes source and sinks,
     /// and splits the graph into strongly connected components.
     ///
-    /// Returns true if there still exist cycles and false otherwise.
+    /// Returns the remaining strongly connected components of size > 1, or `None` if none exist.
     pub fn reduce_to_sccs(&mut self) -> Option<Vec<FxHashSet<usize>>> {
         let mut changed = true;
         while changed {
@@ -536,7 +535,9 @@ impl Digraph{
                     }
                 }
             }
-            return Some(matter_sccs)
+            if matter_sccs.len() >= 1 {
+                return Some(matter_sccs)
+            }
         }
         None
     }
@@ -545,7 +546,7 @@ impl Digraph{
     /// and splits the graph into strongly connected components, while also allowing single nodes
     /// with loops.
     ///
-    /// Returns true if there still exist cycles and false otherwise.
+    /// Returns the remaining strongly connected components of size > 1, or `None` if none exist.
     pub fn reduce_to_sccs_allow_loops(&mut self) -> Option<Vec<FxHashSet<usize>>> {
         let mut changed = true;
         while changed {
@@ -584,7 +585,9 @@ impl Digraph{
                     }
                 }
             }
-            return Some(matter_sccs)
+            if matter_sccs.len() >= 1 {
+                return Some(matter_sccs)
+            }
         }
         None
     }
@@ -593,7 +596,7 @@ impl Digraph{
     /// and splits the graph into strongly connected components, while also allowing single nodes
     /// if they represent contracted edges.
     ///
-    /// Returns true if there still exist cycles and false otherwise.
+    /// Returns the remaining strongly connected components of size > 1, or `None` if none exist.
     pub fn reduce_to_sccs_allow_contracted(&mut self, contracted_nodes: &FxHashMap<usize, Vec<usize>>) -> Option<Vec<FxHashSet<usize>>> {
         let mut changed = true;
         while changed {
@@ -631,7 +634,9 @@ impl Digraph{
                     }
                 }
             }
-            return Some(matter_sccs)
+            if matter_sccs.len() >= 1 {
+                return Some(matter_sccs)
+            }
         }
         None
     }
