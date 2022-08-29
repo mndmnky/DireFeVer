@@ -1,3 +1,16 @@
+//!
+//! This module containes severel reduction rules for a `DFVSInstance`.
+//! These reduction rules can be devided into two categories:
+//! * Safe rules: That are rules, which when applied on a `DFVSInstance` I lead to a reduced instance I', such that, given a
+//! solution S' for I', S' can be lifted (in polynomial time) to a solution S for I. If S' is an
+//! optimal solution for I', the lifted solution S is also optimal for I. If S' is an
+//! x-approximation of I', S is, in the worst case, also an x-approximation for I.
+//! * Lossy rules: This are rules, which, on I lead to a reduced instance I', such that an
+//! x-approximation S' on I' can be lifted in the worst case to a (x*a)-approximation of I, where a
+//! is the approximation factor of the respective lossy rule. 
+//! Depending on the quality of the lifted approximation factor, those rules can be further
+//! categorized. For this see the README.
+
 use crate::dfvs_instance::DFVSInstance;
 use fxhash::FxHashSet;
 use std::collections::{HashSet, HashMap};

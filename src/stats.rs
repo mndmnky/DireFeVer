@@ -62,7 +62,7 @@ impl RuleStats {
         self.suc_apps += other.suc_apps;
     }
 
-    /// Adds the values of `other` to `self`.
+    /// Adds the values of `other` and `self` to create a new instance of `RuleStats`.
     pub fn add_2_new(&self, other: &Self) -> Self {
         assert_eq!(self.rule, other.rule);
         RuleStats {
@@ -121,7 +121,7 @@ impl DFVSInstance {
 
     /// Applies the global lossy2 rule once on the instance and records the running time and the
     /// kill count.
-    pub fn apply_global_lossy2_once(&mut self, param: usize) -> RuleStats {
+    pub fn apply_lossy_contract_globaly_once(&mut self, param: usize) -> RuleStats {
         let mut rs = RuleStats::new(Rule::GlobalLossyContraction(param));
         let nodes_before: u64 = self.graph.num_nodes() as u64;
         let edges_before: i64 = self.graph.num_edges() as i64;

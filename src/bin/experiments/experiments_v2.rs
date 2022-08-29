@@ -185,7 +185,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             let upper = dfvsi.upper_bound.expect("was set");
             uppers.push(upper);
             // ... and continue with global lossy2 once + all rules 
-            let global2 = dfvsi.apply_global_lossy2_once(2);
+            let global2 = dfvsi.apply_lossy_contract_globaly_once(2);
             rules.push(vec![global2]);
             match dfvsi.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
                 Ok(rule_stats) => {

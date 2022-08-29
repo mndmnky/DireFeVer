@@ -150,7 +150,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             let mut uppers = Vec::new();
             
             let mut dfvsi_clone = dfvsi.clone();
-            let cut_stats = dfvsi_clone.apply_global_lossy2_once(2);
+            let cut_stats = dfvsi_clone.apply_lossy_contract_globaly_once(2);
             match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
                 Ok(rule_stats) => {
                     kernels.push(dfvsi_clone.clone());
