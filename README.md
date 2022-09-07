@@ -208,6 +208,9 @@ All of these rules reset the current upper bound and current best solution.
 * And another cut variation.
 * And cut with parameter.
 
+### 1.9.2 
+* Fix SCC rules
+
 ## Todo
 
 ### 1.9.X
@@ -216,9 +219,6 @@ All of these rules reset the current upper bound and current best solution.
 * working tests for both indie cycle rules
 * Working test for adv cut rule 
 * Quality check/guarantee for adv cut rule
-
-### Important 
-* SCC dont check pairs of sccs
 
 ### Very important but lots of work 
 * Split sccs in while exhaustively applying the rules!

@@ -1862,6 +1862,66 @@ impl Digraph {
         sccs
     }
 
+    /// Finds the strongly connected components of `self`.
+    ///
+    /// Returns all weak edges not contained in either one of the found components found by this
+    /// procedure.
+    pub fn find_edges_between_strongly_connected_components_iter(&self) 
+        -> HashSet<(usize, usize)> {
+        let mut inbetween_edges: HashSet<(usize, usize)> = HashSet::new();
+        let mut marked: NodeSet = NodeSet::new();
+        let mut stack: Vec<Option<(usize, usize)>> = Vec::new(); // For step 2
+        // Step 1: (Recursively) start a dfs from each node in the graph and save nodes on `stack`
+        // when ever their respective dfs is finished.
+        let mut queue: Vec<Im> = Vec::new();
+        let mut nodes: Vec<Im> = self.nodes().map(|n| Im::Itm(n)).collect();
+        queue.append(&mut nodes);
+        while !queue.is_empty() {
+            match queue.pop().expect("`queue` is not empty"){
+                Im::Itm(node) => {
+                    if !marked.contains(&node) {
+                        queue.push(Im::Marker(node));
+                        marked.insert(node);
+                        let mut neighs: Vec<Im> = self.out_neighbors(node).as_ref().expect("current is either a node in the graph or a neighbor of an existing node (which makes it a node of the graph)").iter().copied().map(|n| Im::Itm(n)).collect();
+                        queue.append(&mut neighs);
+                    }
+                },
+                Im::Marker(node) => stack.push(Some((node, 0))),
+            }
+        }
+        let mut marked: NodeSet = NodeSet::new();
+        let mut sccs: Vec<FxHashSet<usize>> = Vec::new();
+        // Step 2: Start dfs in reversed direction from the nodes in `stack` (last in first out)
+        // and add all traversed (not marked) nodes to the scc of current node from `stack`.
+        let mut scc: FxHashSet<usize> = FxHashSet::default();
+        while !stack.is_empty() {
+            match stack.pop().expect("`queue` is not empty"){
+                Some((node, evpost)) => {
+                    if !marked.contains(&node) {
+                        marked.insert(node);
+                        if scc.is_empty() {
+                            stack.push(None);
+                        }
+                        scc.insert(node);
+                        let mut neighs: Vec<Option<(usize, usize)>> = self.in_neighbors(node).as_ref().expect("current is either a node in the graph or a neighbor of an existing node (which makes it a node of the graph)").iter().copied().map(|n| Some((n, node))).collect();
+                        stack.append(&mut neighs);
+                    } else {
+                        if !scc.is_empty() {
+                            if !scc.contains(&node) {
+                                inbetween_edges.insert((node, evpost));
+                            }
+                        }
+                    }
+                },
+                None => {
+                    sccs.push(scc);
+                    scc = FxHashSet::default();
+                },
+            }
+        }
+        inbetween_edges
+    }
+
     /// DFS that ignores strong edges and that puts all finished nodes (except the first) onto a stack.
     fn weak_stack_dfs(&self, source: usize, marked: &mut NodeSet, stack: &mut Vec<usize>) {
         for neigh in self.weak_out_neighbors(source).as_ref().expect("current is either a node in the graph or a neighbor of an existing node (which makes it a node of the graph)") {
@@ -1915,7 +1975,7 @@ impl Digraph {
         sccs
     }
 
-    /// Finds the strongly connected components of `self`.
+    /// Finds the strongly connected components of `self`, ignoring strong edges.
     pub fn find_weak_strongly_connected_components_iter(&self) -> Vec<FxHashSet<usize>> {
         let mut marked: NodeSet = NodeSet::new();
         let mut stack: Vec<Im> = Vec::new(); // For step 2
@@ -1962,6 +2022,66 @@ impl Digraph {
             }
         }
         sccs
+    }
+
+    /// Finds the strongly connected components of `self`, ignoring strong edges.
+    ///
+    /// Returns all weak edges not contained in either one of the found components found by this
+    /// procedure.
+    pub fn find_weak_edges_between_weak_strongly_connected_components_iter(&self) 
+        -> HashSet<(usize, usize)> {
+        let mut inbetween_weak_edges: HashSet<(usize, usize)> = HashSet::new();
+        let mut marked: NodeSet = NodeSet::new();
+        let mut stack: Vec<Option<(usize, usize)>> = Vec::new(); // For step 2
+        // Step 1: Start a dfs from each node in the graph and save nodes on `stack`
+        // when ever their dfs is finished.
+        let mut queue: Vec<Im> = Vec::new();
+        let mut nodes: Vec<Im> = self.nodes().map(|n| Im::Itm(n)).collect();
+        queue.append(&mut nodes);
+        while !queue.is_empty() {
+            match queue.pop().expect("`queue` is not empty"){
+                Im::Itm(node) => {
+                    if !marked.contains(&node) {
+                        queue.push(Im::Marker(node));
+                        marked.insert(node);
+                        let mut neighs: Vec<Im> = self.weak_out_neighbors(node).as_ref().expect("current is either a node in the graph or a neighbor of an existing node (which makes it a node of the graph)").iter().copied().map(|n| Im::Itm(n)).collect();
+                        queue.append(&mut neighs);
+                    }
+                },
+                Im::Marker(node) => stack.push(Some((node,0))),
+            }
+        }
+        let mut marked: NodeSet = NodeSet::new();
+        let mut sccs: Vec<FxHashSet<usize>> = Vec::new();
+        // Step 2: Start dfs in reversed direction from the nodes in `stack` (last in first out)
+        // and add all traversed (not marked) nodes to the scc of current node from `stack`.
+        let mut scc: FxHashSet<usize> = FxHashSet::default();
+        while !stack.is_empty() {
+            match stack.pop().expect("`queue` is not empty"){
+                Some((node, evpre)) => {
+                    if !marked.contains(&node) {
+                        marked.insert(node);
+                        if scc.is_empty() {
+                            stack.push(None);
+                        }
+                        scc.insert(node);
+                        let mut neighs: Vec<Option<(usize, usize)>> = self.weak_in_neighbors(node).as_ref().expect("current is either a node in the graph or a neighbor of an existing node (which makes it a node of the graph)").iter().copied().map(|n| Some((n, node))).collect();
+                        stack.append(&mut neighs);
+                    } else {
+                        if !scc.is_empty() {
+                            if !scc.contains(&node) {
+                                inbetween_weak_edges.insert((node, evpre)); 
+                            }
+                        }
+                    }
+                },
+                None => {
+                    sccs.push(scc);
+                    scc = FxHashSet::default();
+                },
+            }
+        }
+        inbetween_weak_edges
     }
 
     /// Greedily looks for a maximal clique: 
@@ -2301,6 +2421,18 @@ mod tests {
         let (split_set, amount) = res.unwrap();
         assert_eq!(split_set.len(), 1);
         assert_eq!(amount, 2);
+    }
+
+    #[test]
+    fn find_inbetweens_sccs_iter_test() {
+        let gr = Cursor::new("10 13 0\n2\n4\n1\n3 5 6\n3 6\n7 10\n8\n9\n6\n\n");
+        let g = Digraph::read_graph(gr);
+        assert!(g.is_ok());
+        let g = g.unwrap();
+        let inbetweeners = g.find_edges_between_strongly_connected_components_iter();
+        assert_eq!(inbetweeners, vec![(3, 5), (4, 5), (5,9)].into_iter().collect::<HashSet<_>>());
+        let inbetweeners = g.find_weak_edges_between_weak_strongly_connected_components_iter();
+        assert_eq!(inbetweeners, vec![(3, 5), (4, 5), (5,9)].into_iter().collect::<HashSet<_>>());
     }
 
 }

@@ -306,6 +306,7 @@ impl DFVSInstance {
     /// components.
     ///
     /// Returns true if at least one edge or node has been removed.
+    #[deprecated(since = "1.9.2", note = "Better use `apply_fast_scc_rule()")]
     pub fn apply_scc_rule(&mut self) -> bool {
         let mut change = false;
         let sccs = self.graph.find_strongly_connected_components_iter();
@@ -339,6 +340,7 @@ impl DFVSInstance {
     /// between.
     ///
     /// Returns true if at least one edge has been removed.
+    #[deprecated(since = "1.9.2", note = "Better use `apply_fast_advanced_scc_rule()")]
     pub fn apply_advanced_scc_rule(&mut self) -> bool {
         let sccs = self.graph.find_weak_strongly_connected_components_iter();
         let mut change = false;
@@ -355,6 +357,27 @@ impl DFVSInstance {
             }
         }
         change
+    }
+
+    /// Finds all strongly connected components and removes the edges between them.
+    ///
+    /// Returns true if at least one edge or node has been removed.
+    pub fn apply_fast_scc_rule(&mut self) -> bool {
+        let inbetweens = self.graph.find_edges_between_strongly_connected_components_iter();
+        let changed = !inbetweens.is_empty();
+        self.remove_edges(inbetweens.into_iter()).expect("all edges in `inbetweens` exist.");
+        changed
+    }
+
+    /// Finds all strongly connected components ignoring strong edges and removes the edges
+    /// between.
+    ///
+    /// Returns true if at least one edge has been removed.
+    pub fn apply_fast_advanced_scc_rule(&mut self) -> bool {
+        let inbetweens = self.graph.find_weak_edges_between_weak_strongly_connected_components_iter();
+        let changed = !inbetweens.is_empty();
+        self.remove_edges(inbetweens.into_iter()).expect("all edges in `inbetweens` exist.");
+        changed
     }
 
     /// Applies either of two rules to the first node one of them appies to.
@@ -1280,7 +1303,7 @@ impl DFVSInstance {
                         self.apply_simple_rules();
                     },
                     Rule::SCC => {
-                        if self.apply_advanced_scc_rule() {
+                        if self.apply_fast_advanced_scc_rule() {
                             continue 'outer
                         }
                     },

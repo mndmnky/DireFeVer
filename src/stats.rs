@@ -301,7 +301,7 @@ impl DFVSInstance {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
-                        let app = self.apply_advanced_scc_rule();
+                        let app = self.apply_fast_advanced_scc_rule();
                         let tr = rec.try_recv();
                         match tr {
                             Err(Disconnected) => {
@@ -335,7 +335,6 @@ impl DFVSInstance {
                             match tr {
                                 Err(Disconnected) => {
                                     break 'outer
-                                    return Err(ProcessingError::OutOfTime);
                                 },
                                 Ok(_) => {
                                     eprintln!("interrupted since interrupt send");
@@ -686,7 +685,7 @@ impl DFVSInstance {
                         let nodes_before = self.graph.num_nodes() as u64;
                         let edges_before = self.graph.num_edges() as i64;
                         let start_time = Instant::now();
-                        let app = self.apply_advanced_scc_rule();
+                        let app = self.apply_fast_advanced_scc_rule();
                         rule_stat.add(
                             nodes_before - self.graph.num_nodes() as u64,
                             edges_before - self.graph.num_edges() as i64,
