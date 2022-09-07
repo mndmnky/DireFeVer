@@ -63,7 +63,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         .get_matches();
     // Get, as input all public instances. 
     let files: Vec<PathBuf> = m.values_of("files").unwrap().map(|p| PathBuf::from(p)).collect();
-    let ultimate = Duration::from_secs(3600);
+    let ultimate = Duration::from_secs(1800);
     let dest: &str = m.value_of("dest").unwrap();
 
     // Rule priority sets
