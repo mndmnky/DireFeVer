@@ -125,7 +125,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     // Process graphs in different threads.
     for (graph, name) in graphs.clone() {
         cthreads.push(thread::spawn(move || {
-            let mut dfvsi_org = DFVSInstance::new(graph.clone(), None, None);
+            let dfvsi_org = DFVSInstance::new(graph.clone(), None, None);
             (dfvsi_org, name)
     }));
     }

@@ -4,19 +4,14 @@
 //! resulting kernel.
 
 use std::error;
-use std::time::{Duration,Instant};
-use std::sync::mpsc::channel;
-use std::sync::mpsc::{SendError, Receiver, Sender};
-use std::ffi::OsString;
+use std::sync::mpsc::SendError;
 use clap::{Arg, Command};
 use std::path::PathBuf;
 use std::fs::File;
-use std::thread;
-use std::thread::JoinHandle;
 use std::io::{BufReader, Write};
 use std::fmt::Display;
 
-use dfvs_solver::{digraph::Digraph,  dfvs_instance::DFVSInstance, reduction_rules::Rule, stats::RuleStats};
+use dfvs_solver::digraph::Digraph;
 
 #[derive(Debug)]
 enum ThreadErr {

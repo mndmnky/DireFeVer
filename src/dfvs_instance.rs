@@ -257,7 +257,7 @@ impl DFVSInstance {
                 // TODO: not yet tested:
                 Reduction::BigMerge(into, mut from, mut ins, mut outs) => {
                     // TODO: could be made more efficient.
-                    for i in 1..ins.len() {
+                    for _ in 1..ins.len() {
                         self.graph.reinsert_node(from.pop().expect("not empty"), ins.pop().expect("not empty"), outs.pop().expect("not empty"));
                     }
                     self.graph.remove_node(into);

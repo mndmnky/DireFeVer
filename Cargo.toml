@@ -45,10 +45,6 @@ path = "src/bin/experiments/all_exact_exp.rs"
 name = "instance_stats"
 path = "src/bin/experiments/init_stats.rs"
 
-[[bin]]
-name = "test"
-path = "src/bin/experiments/test.rs"
-
 [dependencies]
 itertools = "0.10.1"
 clap = { version = "3.0.13", features = ["derive", "regex"] }

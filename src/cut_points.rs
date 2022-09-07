@@ -295,6 +295,4 @@ impl Digraph {
         None
     }
 
-
-
 }

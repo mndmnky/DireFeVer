@@ -263,7 +263,7 @@ impl DFVSInstance {
         }
         // If the current lower bound is equal or greater than our current best solution, we won't find a better
         // solution in this branch.
-        let lower = self.lower_bound_clique_heuristic(priority_rules, true);
+        let lower = self.clique_heuristic_lower(priority_rules, true);
         if lower >= self.upper_bound.expect("`upper_bound` was set") {
             return Ok(None);
         }
