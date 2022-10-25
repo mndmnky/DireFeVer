@@ -170,6 +170,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             
             let mut dfvsi_clone = dfvsi.clone();
             let cut_stats = dfvsi_clone.apply_lossy_cut_once(1);
+            eprintln!("started?");
             match dfvsi_clone.exhaustive_fine_rules_stats(&priorities[0], &interrupt_receiver) {
                 Ok(rule_stats) => {
                     kernels.push(dfvsi_clone.clone());
@@ -210,7 +211,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 Err(_) => {
                     eprintln!("Interrupted {:?}",n1);
                     done_sender.send(1)?;
-                    return Ok(None);
+                    return Ok(Some((kernels, rules, uppers)));
                 },
             };
 
@@ -337,6 +338,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 eprintln!("joined {}", i);
                 *joined = true;
             } else if !timer[i].2 && timer[i].0.elapsed() >= ultimate {
+                eprintln!("try to interrupt {}", i);
                 timer[i].1.send(1)?; 
                 timer[i].2 = true;
             } else {
