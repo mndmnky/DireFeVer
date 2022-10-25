@@ -305,6 +305,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             } else if !timer[i].2 && timer[i].0.elapsed() >= ultimate {
                 timer[i].1.send(1)?; 
                 timer[i].2 = true;
+                remain += 1;
             } else {
                 remain += 1;
             }

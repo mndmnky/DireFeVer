@@ -341,6 +341,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 eprintln!("try to interrupt {}", i);
                 timer[i].1.send(1)?; 
                 timer[i].2 = true;
+                remain += 1;
             } else {
                 remain += 1;
             }
