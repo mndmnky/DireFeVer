@@ -1,6 +1,6 @@
 //!
 //! This binary is only meant for experiments.
-//! Runs Type B lossy reduction rules and outputs a csv containing statistics for the rules and the
+//! Runs Type A lossy reduction rules and outputs a csv containing statistics for the rules and the
 //! resulting kernel.
 
 use std::error;
@@ -68,7 +68,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     // Rule priority sets
     let priorities_org = vec![
-        vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::AdvancedPetal],
+        vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC],
         //vec![Rule::SimpleRules, Rule::LossyClique(1), Rule::LossyCycle(3), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
     ];
 
@@ -87,8 +87,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_scc, n_scc, m_scc,\
              t_cliq, n_cliq, m_cliq,\
              t_core, n_core, m_core,\
-             t_domino, n_domino, m_domino,\
-             t_ap, n_ap, m_ap")?;
+             t_domino, n_domino, m_domino")?;
     writeln!(&mut out_files[1], "name, nk, mk, sk, uk,\
              t_lmerge, n_lmerge, m_lmerge, maxoff_lmerge,\
              t_st, n_st, m_st,\
@@ -98,8 +97,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_scc, n_scc, m_scc,\
              t_cliq, n_cliq, m_cliq,\
              t_core, n_core, m_core,\
-             t_domino, n_domino, m_domino,\
-             t_ap, n_ap, m_ap")?;
+             t_domino, n_domino, m_domino")?;
 
     // Read graphs
     let mut graphs = Vec::new();
@@ -313,7 +311,7 @@ fn write_stuff(
             line.push_str(&format!("{:?}", g_name));
             // file line with aproprate amount of ,
             // 10*3 + 5
-            line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,");
+            line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,");
             writeln!(out_files[i], "{}",line)?;
         }
     }

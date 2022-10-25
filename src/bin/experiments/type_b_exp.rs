@@ -68,8 +68,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     // Rule priority sets
     let priorities_org = vec![
-        vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC, Rule::QuickAdvancedPetal],
-        //vec![Rule::SimpleRules, Rule::LossyClique(1), Rule::LossyCycle(3), Rule::Dome, Rule::SCC, Rule::AdvancedPetal],
+        vec![Rule::SimpleRules, Rule::LinkNode, Rule::TwinNodes, Rule::Dome, Rule::Clique, Rule::Core, Rule::Dominion, Rule::SCC],
     ];
 
     // Initialize output files
@@ -89,8 +88,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_scc, n_scc, m_scc,\
              t_cliq, n_cliq, m_cliq,\
              t_core, n_core, m_core,\
-             t_domino, n_domino, m_domino,\
-             t_qap, n_qap, m_qap")?;
+             t_domino, n_domino, m_domino")?;
     writeln!(&mut out_files[1], "name, nk, mk, sk, uk,\
              t_lcutv, n_lcutv, m_lcutv, maxoff_lcutv,\
              t_st, n_st, m_st,\
@@ -100,8 +98,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_scc, n_scc, m_scc,\
              t_cliq, n_cliq, m_cliq,\
              t_core, n_core, m_core,\
-             t_domino, n_domino, m_domino,\
-             t_qap, n_qap, m_qap")?;
+             t_domino, n_domino, m_domino")?;
     writeln!(&mut out_files[2], "name, nk, mk, sk, uk,\
              t_ldc, n_ldc, m_ldc, maxoff_ldc,\
              t_st, n_st, m_st,\
@@ -111,8 +108,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_scc, n_scc, m_scc,\
              t_cliq, n_cliq, m_cliq,\
              t_core, n_core, m_core,\
-             t_domino, n_domino, m_domino,\
-             t_qap, n_qap, m_qap")?;
+             t_domino, n_domino, m_domino")?;
     writeln!(&mut out_files[3], "name, nk, mk, sk, uk,\
              t_lsdc, n_lsdc, m_lsdc, maxoff_lsdc,\
              t_st, n_st, m_st,\
@@ -122,8 +118,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
              t_scc, n_scc, m_scc,\
              t_cliq, n_cliq, m_cliq,\
              t_core, n_core, m_core,\
-             t_domino, n_domino, m_domino,\
-             t_qap, n_qap, m_qap")?;
+             t_domino, n_domino, m_domino")?;
 
     // Read graphs
     let mut graphs = Vec::new();
@@ -392,7 +387,7 @@ fn write_stuff(
             line.push_str(&format!("{:?}", g_name));
             // file line with aproprate amount of ,
             // 10*3 + 5
-            line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,");
+            line.push_str(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,");
             writeln!(out_files[i], "{}",line)?;
         }
     }
