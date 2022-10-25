@@ -6,6 +6,7 @@ use crate::digraph::Digraph;
 use fxhash::{FxHashSet, FxHashMap};
 use std::collections::HashMap;
 use std::ops::AddAssign;
+use std::vec;
 
 impl Digraph {
     
@@ -20,8 +21,14 @@ impl Digraph {
         let subs = self.split_into_connected_components_alt();
         let mut cut_vertices: FxHashSet<usize> = FxHashSet::default();
         for mut sub in subs {
-            if let Some(cut_vs) = sub.split_scc_recursively(cut_size) {
-                cut_vertices.extend(cut_vs.into_iter());
+            if cut_size == 1 {
+                if let Some(cut_vs) = sub.split_scc_iter() {
+                    cut_vertices.extend(cut_vs.into_iter());
+                }
+            } else {
+                if let Some(cut_vs) = sub.split_scc_recursively(cut_size) {
+                    cut_vertices.extend(cut_vs.into_iter());
+                }
             }
         }
         return cut_vertices;
@@ -104,6 +111,35 @@ impl Digraph {
     }
 
     /// Looks for a node that splits `self` into two or more strongly connected components and
+    /// repeats iteratively until no more node can be found. Returns the set of cut nodes, or
+    /// `None` if none could have been found.
+    fn split_scc_iter(&mut self) -> Option<FxHashSet<usize>> {
+        let mut cut_vertices = FxHashSet::default();
+        let mut parts = vec![self.clone()];
+        while !parts.is_empty() {
+            let part = parts.pop().expect("is not empty");
+            let mut nodes: Vec<usize> = self.nodes().collect();
+            nodes.sort_unstable_by_key(|n| self.degree(*n));
+            while !nodes.is_empty() {
+                let tn = nodes.pop().expect("`nodes` is not empty");
+                let mut clone = part.clone();
+                clone.remove_node(tn);
+                if let Some(sccs) = clone.reduce_to_sccs() {
+                    if sccs.len() > 1 {
+                        cut_vertices.insert(tn);
+                        parts.extend(clone.split_into_connected_components_alt().into_iter());
+                        break;
+                    }
+                }
+            }
+        }
+        if cut_vertices.len() == 0 {
+            return None
+        }
+        return Some(cut_vertices)
+    }
+
+    /// Looks for a node that splits `self` into two or more strongly connected components and
     /// repeats recursively until no more node can be found. Returns the set of cut nodes, or
     /// `None` if none could have been found.
     ///
@@ -111,52 +147,29 @@ impl Digraph {
     ///
     /// * `cut_size` - The amount of nodes tried in each step.
     fn split_scc_recursively(&mut self, cut_size: usize) -> Option<FxHashSet<usize>> {
-        if cut_size == 1 {
-            let mut nodes: Vec<usize> = self.nodes().collect();
-            nodes.sort_unstable_by_key(|n| self.degree(*n));
-            while !nodes.is_empty() {
+        let mut nodes: Vec<usize> = self.nodes().collect();
+        nodes.sort_unstable_by_key(|n| self.degree(*n));
+        let mut clone = self.clone();
+        let mut cut_vertices = FxHashSet::default();
+        for _ in 0..cut_size {
+            if nodes.len() > 0 {
                 let tn = nodes.pop().expect("`nodes` is not empty");
-                let mut clone = self.clone();
                 clone.remove_node(tn);
-                if let Some(sccs) = clone.reduce_to_sccs() {
-                    let mut cut_vertices: FxHashSet<usize> = vec![tn].into_iter().collect();
-                    if sccs.len() > 1 {
-                        let subs = clone.split_into_connected_components_alt();
-                        for mut sub in subs {
-                            if let Some(cut_vs) = sub.split_scc_recursively(cut_size){
-                                cut_vertices.extend(cut_vs.into_iter());
-                            }
-                        }
-                        return Some(cut_vertices);
-                    }
-                }
+                cut_vertices.insert(tn);
             }
-            None
-        } else {
-            let mut nodes: Vec<usize> = self.nodes().collect();
-            nodes.sort_unstable_by_key(|n| self.degree(*n));
-            let mut clone = self.clone();
-            let mut cut_vertices = FxHashSet::default();
-            for _ in 0..cut_size {
-                if nodes.len() > 0 {
-                    let tn = nodes.pop().expect("`nodes` is not empty");
-                    clone.remove_node(tn);
-                    cut_vertices.insert(tn);
-                }
-            }
-            if let Some(sccs) = clone.reduce_to_sccs() {
-                if sccs.len() > 1 {
-                    let subs = clone.split_into_connected_components_alt();
-                    for mut sub in subs {
-                        if let Some(cut_vs) = sub.split_scc_recursively(cut_size){
-                            cut_vertices.extend(cut_vs.into_iter());
-                        }
-                    }
-                    return Some(cut_vertices);
-                }
-            }
-            None
         }
+        if let Some(sccs) = clone.reduce_to_sccs() {
+            if sccs.len() > 1 {
+                let subs = clone.split_into_connected_components_alt();
+                for mut sub in subs {
+                    if let Some(cut_vs) = sub.split_scc_recursively(cut_size){
+                        cut_vertices.extend(cut_vs.into_iter());
+                    }
+                }
+                return Some(cut_vertices);
+            }
+        }
+        None
     }
 
     /// Looks for a node that splits `self` into two or more strongly connected components and
