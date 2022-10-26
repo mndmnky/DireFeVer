@@ -30,6 +30,10 @@ name = "typeb"
 path = "src/bin/experiments/type_b_exp.rs"
 
 [[bin]]
+name = "indie"
+path = "src/bin/experiments/indie_rules_exp.rs"
+
+[[bin]]
 name = "typea"
 path = "src/bin/experiments/type_a_exp.rs"
 
