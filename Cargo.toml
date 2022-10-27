@@ -34,6 +34,10 @@ name = "indie"
 path = "src/bin/experiments/indie_rules_exp.rs"
 
 [[bin]]
+name = "single_indie"
+path = "src/bin/experiments/single_indie_rule.rs"
+
+[[bin]]
 name = "typea"
 path = "src/bin/experiments/type_a_exp.rs"
 
