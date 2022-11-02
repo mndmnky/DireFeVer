@@ -1,7 +1,5 @@
 //!
 //! This binary is only meant for experiments.
-//! Runs Type B lossy reduction rules and outputs a csv containing statistics for the rules and the
-//! resulting kernel.
 
 use std::error;
 use std::time::{Duration,Instant};
