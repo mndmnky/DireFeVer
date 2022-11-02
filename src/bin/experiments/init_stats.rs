@@ -88,8 +88,8 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         let time_lower = start_time.elapsed().as_millis();
         let upper_init = dfvsi.upper_bound.expect("was set");
         let lower_init = dfvsi.lower_bound.expect("was set");
-        writeln!(out_files[0], "{:?}, {}, {}, {}, {}, {}, {}, {}", name, graph.num_nodes(), 
-                 graph.num_edges(), pie_edges_count, upper_init, time_upper, lower_init, time_lower)?;
+        writeln!(out_files[0], "{:?}, {}, {}, {}, {}, {}, {}, {}", name, dfvsi.graph.num_nodes(), 
+                 dfvsi.graph.num_edges(), pie_edges_count, upper_init, time_upper, lower_init, time_lower)?;
     }
     Ok(())
 }
